@@ -33,14 +33,6 @@ jobs:
       - name: Move executable to dist folder
         run: mv dist/process_labels dist/process_labels.elf
 
-      - name: Set up Git
-        uses: actions/setup-git@v3
-        with:
-          git_credentials_file: ${{ env.GH_PAT }}
-
-      - name: Check Git status before commit
-        run: git status
-
       - name: Add ELF file
         run: git add dist/process_labels.elf
 
