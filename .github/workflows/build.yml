@@ -33,16 +33,11 @@ jobs:
       - name: Move executable to dist folder
         run: mv dist/process_labels dist/process_labels.elf
 
-      - name: Compress ELF file (optional, adjust level if needed)
-        run: gzip -9 dist/process_labels.elf
+      - name: Split the ELF file into 50MB chunks
+        run: split -b 50m dist/process_labels.elf split_part_
 
-      - name: Add compressed file (or original if not compressed)
-        run: |
-          if [[ -f "dist/process_labels.elf.gz" ]]; then
-            git add "dist/process_labels.elf.gz"
-          else
-            git add "dist/process_labels.elf"
-          fi
+      - name: Add split parts to Git
+        run: git add split_part_*
 
       - name: Configure Git identity
         run: |
