@@ -8,7 +8,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Set up Python
       uses: actions/setup-python@v2
@@ -30,15 +30,16 @@ jobs:
     - name: Move executable to dist folder
       run: mv dist/process_labels dist/process_labels.elf
 
-    - name: Commit and push built file
-      env:
-        GH_PAT: ${{ secrets.GH_PAT }}
-      run: |
-        git config --global user.name 'github-actions[bot]'
-        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-        git add dist/process_labels.elf
-        git commit -m 'Add built process_labels.elf'
-        git push origin HEAD:main
+    - name: Add ELF file
+      run: git add dist/process_labels.elf
+
+    - name: Commit changes
+      run: git commit -m "Build and push ELF file"
+
+    - name: Push to repository
+      uses: actions/checkout@v3
+      with:
+        token: ${{ secrets.GH_PAT }}
         
     - name: Build Docker image
       run: |
