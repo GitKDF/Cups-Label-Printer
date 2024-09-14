@@ -33,6 +33,9 @@ jobs:
     - name: Move executable to dist folder
       run: mv dist/process_labels dist/process_labels.elf
 
+    - name: List dist folder contents
+      run: ls -la dist
+
     - name: Build Docker image
       run: |
         docker build -t your_dockerhub_username/your_image_name:tag .
