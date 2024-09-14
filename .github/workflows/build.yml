@@ -8,7 +8,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -33,8 +33,16 @@ jobs:
       - name: Move executable to dist folder
         run: mv dist/process_labels dist/process_labels.elf
 
-      - name: Add ELF file
-        run: git add dist/process_labels.elf
+      - name: Compress ELF file (optional, adjust level if needed)
+        run: gzip -9 dist/process_labels.elf
+
+      - name: Add compressed file (or original if not compressed)
+        run: |
+          if [[ -f "dist/process_labels.elf.gz" ]]; then
+            git add "dist/process_labels.elf.gz"
+          else
+            git add "dist/process_labels.elf"
+          fi
 
       - name: Configure Git identity
         run: |
@@ -42,16 +50,10 @@ jobs:
           git config user.email ${{ secrets.GIT_USER_EMAIL }}
 
       - name: Commit changes
-        run: git commit -m "Build and push ELF file"
+        run: git commit -m "Build and push ELF file (compressed if over 100MB)"
 
       - name: Push to repository
         run: git push origin main
-
-      - name: Check Git status after commit
-        run: git status
-
-      - name: Check Git log
-        run: git log -1
 
       - name: Build Docker image
         run: |
