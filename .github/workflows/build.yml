@@ -33,13 +33,19 @@ jobs:
     - name: Check Git status before commit
       run: git status
 
-    - name: Add ELF file, commit and push to repository
+    - name: Add ELF file
+      run: git add dist/process_labels.elf
+
+    - name: Configure Git identity
       run: |
-        git add dist/process_labels.elf
-        git config user.name ${{ secrets.GIT_USER }}
+        git config user.name ${{ secrets.GIT_USER_NAME }}
         git config user.email ${{ secrets.GIT_USER_EMAIL }}
-        git commit -m "Build and push ELF file"
-        git push https://x-access-token:${{ secrets.GH_PAT }}@github.com/GitKDF/Cups-Label-Printer.git HEAD:main
+
+    - name: Commit changes
+      run: git commit -m "Build and push ELF file"
+
+    - name: Push to repository
+      run: git push https://${{ secrets.GH_PAT }}@github.com/GitKDF/Cups-Label-Printer.git main
 
     - name: Check Git status after commit
       run: git status
