@@ -27,6 +27,9 @@ jobs:
     - name: Build executable
       run: pyinstaller --onefile process_labels.py
 
+    - name: List dist folder contents
+      run: ls -la dist
+      
     - name: Move executable to dist folder
       run: mv dist/process_labels dist/process_labels.elf
 
