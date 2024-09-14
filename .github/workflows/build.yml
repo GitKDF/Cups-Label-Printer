@@ -6,8 +6,8 @@ env:
   GH_PAT: ${{ secrets.GH_PAT }}
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  build:
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
