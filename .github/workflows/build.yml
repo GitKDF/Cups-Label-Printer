@@ -2,61 +2,64 @@ name: Build and Push Docker Image
 
 on: [push]
 
+env:
+  GH_PAT: ${{ secrets.GH_PAT }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.x'
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
 
-    - name: Install dependencies
-      run: |
-        pip install pyinstaller
-        pip install pymupdf
-        pip install pillow
-        pip install opencv-python-headless
-        pip install numpy
-        pip install argparse
+      - name: Install dependencies
+        run: |
+          pip install pyinstaller
+          pip install pymupdf
+          pip install pillow
+          pip install opencv-python-headless
+          pip install numpy
+          pip install argparse
 
-    - name: Build executable
-      run: pyinstaller --onefile process_labels.py
-      
-    - name: Move executable to dist folder
-      run: mv dist/process_labels dist/process_labels.elf
-      
-    - name: Set up Git
-      uses: actions/setup-git@v3
-      with:
-        git_credentials_file: ${{ secrets.GH_PAT }}
-        
-    - name: Check Git status before commit
-      run: git status
+      - name: Build executable
+        run: pyinstaller --onefile process_labels.py
 
-    - name: Add ELF file
-      run: git add dist/process_labels.elf
+      - name: Move executable to dist folder
+        run: mv dist/process_labels dist/process_labels.elf
 
-    - name: Configure Git identity
-      run: |
-        git config user.name ${{ secrets.GIT_USER_NAME }}
-        git config user.email ${{ secrets.GIT_USER_EMAIL }}
+      - name: Set up Git
+        uses: actions/setup-git@v3
+        with:
+          git_credentials_file: ${{ env.GH_PAT }}
 
-    - name: Commit changes
-      run: git commit -m "Build and push ELF file"
+      - name: Check Git status before commit
+        run: git status
 
-    - name: Push to repository
-      run: git push https://${{ secrets.GH_PAT }}@github.com/GitKDF/Cups-Label-Printer.git main
+      - name: Add ELF file
+        run: git add dist/process_labels.elf
 
-    - name: Check Git status after commit
-      run: git status
+      - name: Configure Git identity
+        run: |
+          git config user.name ${{ secrets.GIT_USER_NAME }}
+          git config user.email ${{ secrets.GIT_USER_EMAIL }}
 
-    - name: Check Git log
-      run: git log -1
+      - name: Commit changes
+        run: git commit -m "Build and push ELF file"
+
+      - name: Push to repository
+        run: git push origin main
+
+      - name: Check Git status after commit
+        run: git status
+
+      - name: Check Git log
+        run: git log -1
     
     - name: Build Docker image
       run: |
