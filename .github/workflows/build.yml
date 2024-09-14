@@ -29,15 +29,15 @@ jobs:
       
     - name: Move executable to dist folder
       run: mv dist/process_labels dist/process_labels.elf
-
+      
     - name: Add ELF file, commit and push to repository
       run: |
         git add dist/process_labels.elf
-        git config user.name ${{ secrets.GIT_USER }}
+        git config user.name ${{ secrets.GIT_USER_NAME }}
         git config user.email ${{ secrets.GIT_USER_EMAIL }}
         git commit -m "Build and push ELF file"
-        git push https://x-access-token:${{ secrets.GH_PAT }}@github.com/GitKDF/Cups-Label-Printer.git HEAD:main  
-
+        git push https://${{ secrets.GH_PAT }}@github.com/GitKDF/Cups-Label-Printer.git main
+    
     - name: Build Docker image
       run: |
         docker build -t your_dockerhub_username/your_image_name:tag .
