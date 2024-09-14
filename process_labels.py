@@ -170,4 +170,8 @@ if __name__ == "__main__":
     parser.add_argument("error_margin_percent", type=float, help="Error margin percentage for dimension checks.")
     parser.add_argument("set_margin", type=float, help="Margin to set in inches.")
     parser.add_argument("output_path", type=str, help="Path to save the output PDF file.")
-    parser.add_argument("ant_threshold",
+    parser.add_argument("ant_threshold", type=float, help="Ant threshold in inches.")
+    
+    args = parser.parse_args()
+    
+    process_pdf(args.pdf_path, args.dpi, args.error_margin_percent, args.set_margin, args.output_path, args.ant_threshold)
