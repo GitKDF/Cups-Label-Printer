@@ -26,15 +26,17 @@ jobs:
 
     - name: Build executable
       run: pyinstaller --onefile process_labels.py
-
-    - name: List dist folder contents
-      run: ls -la dist
       
     - name: Move executable to dist folder
       run: mv dist/process_labels dist/process_labels.elf
 
-    - name: List dist folder contents
-      run: ls -la dist
+    - name: Commit and push built file
+      run: |
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+        git add dist/process_labels.elf
+        git commit -m 'Add built process_labels.elf'
+        git push
 
     - name: Build Docker image
       run: |
