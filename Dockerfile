@@ -9,6 +9,7 @@ COPY /dist/Label_Printer.ppd /etc/cups/ppd/
 COPY /dist/dummy.ppd /etc/cups/ppd/
 
 # Recombine the split ELF file chunks
+RUN ls -la /dist
 RUN cat /dist/process_labels_split_part* > /dist/process_labels.elf
 RUN ls -la /dist
 
