@@ -9,7 +9,7 @@ COPY /dist/Label_Printer.ppd /etc/cups/ppd/
 COPY /dist/dummy.ppd /etc/cups/ppd/
 
 # Copy the split ELF file chunks
-RUN cp /dist/process_labels_split_part* > /etc/cups/process_labels/
+RUN cp -t /etc/cups/process_labels/ /dist/process_labels_split_part*
 
 # Recombine the split ELF file chunks
 RUN cat /etc/cups/process_labels/process_labels_split_part* > /etc/cups/process_labels/process_labels.elf
