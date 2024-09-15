@@ -31,7 +31,7 @@ jobs:
         run: pyinstaller --onefile process_labels.py
 
       - name: Split the ELF file into 50MB chunks
-        run: split -b 50m dist/process_labels dist/process_labels_split_part_%.elf
+        run: split -b 50m dist/process_labels dist/process_labels_split_part_
 
       - name: Add split parts to Git
         run: git add dist/process_labels_split_part_*
