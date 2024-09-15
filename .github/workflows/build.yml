@@ -37,7 +37,7 @@ jobs:
         run: split -b 50m dist/process_labels.elf process_labels_split_part_
 
       - name: Add split parts to Git
-        run: git add process_labels_split_part_*
+        run: git add dist/process_labels_split_part_*
 
       - name: Configure Git identity
         run: |
