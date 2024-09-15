@@ -36,15 +36,26 @@ jobs:
       - name: Add split parts to Git
         run: git add dist/process_labels_split_part_*
 
+      - name: Check if there are changes to commit
+        id: check_changes
+        run: |
+          if git diff --cached --quiet; then
+            echo "no_changes=true" >> $GITHUB_ENV
+          else
+            echo "no_changes=false" >> $GITHUB_ENV
+          fi
+
       - name: Configure Git identity
         run: |
-          git config user.name ${{ secrets.GIT_USER_NAME }}
+          git config user.name ${{ secrets.GIT_user }}
           git config user.email ${{ secrets.GIT_USER_EMAIL }}
 
       - name: Commit changes
-        run: git commit -m "Build and push ELF file (compressed if over 100MB)"
+        if: env.no_changes == 'false'
+        run: git commit -m "Build and push ELF file (split to 50MB)"
 
       - name: Push to repository
+        if: env.no_changes == 'false'
         run: git push origin main
 
       - name: Build Docker image
