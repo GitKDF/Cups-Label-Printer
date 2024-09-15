@@ -10,6 +10,7 @@ COPY /dist/dummy.ppd /etc/cups/ppd/
 
 # Recombine the split ELF file chunks
 RUN cat /dist/process_labels_split_part* > /dist/process_labels.elf
+RUN ls -la /dist
 
 # Copy the recombined executable
 COPY /dist/process_labels.elf /etc/cups/process_labels/process_labels.elf
