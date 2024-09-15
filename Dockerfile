@@ -8,7 +8,10 @@ COPY /dist/printers.conf /etc/cups/
 COPY /dist/Label_Printer.ppd /etc/cups/ppd/
 COPY /dist/dummy.ppd /etc/cups/ppd/
 
-# Copy the executable with its extension
+# Recombine the split ELF file chunks
+RUN cat dist/process_labels_split_part* > dist/process_labels.elf
+
+# Copy the recombined executable
 COPY /dist/process_labels.elf /etc/cups/process_labels/process_labels.elf
 
 # Copy the backend script
