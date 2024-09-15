@@ -34,10 +34,10 @@ jobs:
         run: mv dist/process_labels dist/process_labels.elf
 
       - name: Split the ELF file into 50MB chunks
-        run: split -b 50m dist/process_labels.elf split_part_
+        run: split -b 50m dist/process_labels.elf process_labels_split_part_
 
       - name: Add split parts to Git
-        run: git add split_part_*
+        run: git add process_labels_split_part_*
 
       - name: Configure Git identity
         run: |
