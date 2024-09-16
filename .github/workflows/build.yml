@@ -45,11 +45,7 @@ jobs:
             echo "no_changes=false" >> $GITHUB_ENV
           fi
 
-      - name: Print no_changes value
-        run: echo "no_changes=$no_changes"
-
       - name: Configure Git identity
-        if: ${{ env.no_changes == 'false' }}
         run: |
           git config user.name ${{ secrets.GIT_user }}
           git config user.email ${{ secrets.GIT_USER_EMAIL }}
