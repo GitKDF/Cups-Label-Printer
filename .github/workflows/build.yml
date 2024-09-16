@@ -38,7 +38,7 @@ jobs:
 
       - name: Configure Git identity
         run: |
-          git config user.name ${{ secrets.GIT_user }}
+          git config user.name ${{ secrets.GIT_USER_NAME }}
           git config user.email ${{ secrets.GIT_USER_EMAIL }}
 
       - name: Commit changes
