@@ -55,7 +55,7 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t gitkdf/docker-airnef-service:latest .
+          docker build -t gitkdf/cups-label-printer:latest .
 
       - name: Log in to DockerHub
         uses: docker/login-action@v2
@@ -64,4 +64,4 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
   
       - name: Push Docker image
-        run: docker push gitkdf/docker-airnef-service:latest
+        run: docker push gitkdf/cups-label-printer:latest
