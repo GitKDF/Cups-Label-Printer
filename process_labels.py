@@ -52,6 +52,9 @@ def crop_whitespace(image, dpi, ant_threshold):
     return cropped_image, cropped_rect
 
 def check_dimensions(image, target_width, target_height, dpi, error_margin_percent):
+    # Convert the PIL image to a NumPy array
+    image = np.array(image)
+    
     height, width = image.shape[:2]
     error_margin = error_margin_percent / 100.0
     
@@ -66,6 +69,9 @@ def check_dimensions(image, target_width, target_height, dpi, error_margin_perce
     return width_within_margin and height_within_margin
 
 def check_ratio(image, target_width, target_height, dpi, error_margin_percent):
+    # Convert the PIL image to a NumPy array
+    image = np.array(image)
+    
     height, width = image.shape[:2]
     error_margin = error_margin_percent / 100.0
     
@@ -81,6 +87,9 @@ def check_ratio(image, target_width, target_height, dpi, error_margin_percent):
     return ratio_within_margin
 
 def validate_barcode_and_separator(image, dpi):
+    # Convert the PIL image to a NumPy array
+    image = np.array(image)
+    
     height, width = image.shape[:2]
     
     # Rotate the image if width is greater than height
