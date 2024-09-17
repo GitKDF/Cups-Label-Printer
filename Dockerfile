@@ -25,6 +25,7 @@ RUN mkdir -p /etc/cups-bak && cp -r /etc/cups/* /etc/cups-bak/
 
 # Set ownership and permissions
 RUN chown root:root /usr/lib/cups/backend/label-backend && chmod 755 /usr/lib/cups/backend/label-backend
+RUN chown root:root /etc/cups/process_labels/process_labels.elf && chmod 755 /etc/cups/process_labels/process_labels.elf
 
 # Set default environment variables
 ENV dpi=600
