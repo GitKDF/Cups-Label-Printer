@@ -46,8 +46,11 @@ main() {
     # Process the PostScript
     process_ps "$input_data"
 
+   # Check for TestMode in settings.txt
+    test_mode=$(grep TestMode /etc/cups/process_labels/settings.txt | awk -F '=' '{print $2}')
+
     # Check if TestMode is set to TRUE
-    if [ "${TestMode:-}" = "TRUE" ]; then
+    if [ "$test_mode" = "TRUE" ]; then
         # Copy the output file to the /output folder
         cp "$output_path" /output/
     else
