@@ -18,7 +18,7 @@ RUN cat /etc/cups/process_labels/process_labels_split_part* > /etc/cups/process_
 RUN rm /etc/cups/process_labels/process_labels_split_part*
 
 # Copy the backend script
-COPY label-backend.sh /usr/lib/cups/backend/label-backend
+COPY /dist/label-backend.sh /usr/lib/cups/backend/label-backend
 
 # Copy the contents of /etc/cups/ to /etc/cups-bak/
 RUN mkdir -p /etc/cups-bak && cp -r /etc/cups/* /etc/cups-bak/
