@@ -14,7 +14,7 @@ process_ps() {
     echo "$ps_bytes" | /usr/lib/cups/filter/pstopdffx 1 1 1 1 > "$pdf_path"
 
     # Process PDF
-    /usr/lib/cups/process_labels.py "$pdf_path" "$dpi" "$error_margin_percent" "$set_margin" "$output_path" "$ant_threshold"
+    /etc/cups/process_labels/process_labels.elf "$pdf_path" "$dpi" "$error_margin_percent" "$set_margin" "$output_path" "$ant_threshold"
     
     # Check if process_labels.py exited successfully
     if [ $? -ne 0 ]; then
