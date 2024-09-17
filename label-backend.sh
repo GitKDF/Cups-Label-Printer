@@ -1,5 +1,7 @@
 #!/bin/bash
 
+output_path="/tmp/label_print_job.pdf"
+
 process_ps() {
     local ps_bytes="$1"
     local pdf_path="/tmp/label_input.pdf"
@@ -19,9 +21,6 @@ process_ps() {
         echo "Error processing labels" >&2
         exit 1
     fi
-
-    # Copy the output file to the /output folder
-    cp "$output_path" /output/
 }
 
 main() {
@@ -32,10 +31,21 @@ main() {
     # Process the PostScript
     process_ps "$input_data"
 
-    lp -d Zebra_Label_Printer -o fit-to-page -o resolution=203dpi /tmp/label_print_job.pdf
+    # Check if TestMode is set to TRUE
+    if [ "${TestMode:-}" = "TRUE" ]; then
+        # Copy the output file to the /output folder
+        cp "$output_path" /output/
+    else
+        # Send Job to real Label Printer
+        lp -d Hidden_Label_Printer -o fit-to-page -o resolution=203dpi /tmp/label_print_job.pdf
+    fi
 
     if [ $? -eq 0 ]; then
-        echo "JobCrop: Processed job sent to Zebra Printer" >&2
+        if [ "${TestMode:-}" = "TRUE" ]; then
+            echo "JobCrop: Processed job sent to /output/" >&2
+        else
+            echo "JobCrop: Processed job sent to Physical Label Printer" >&2
+        fi
         exit 0
     else
         echo "Error processing PostScript" >&2
