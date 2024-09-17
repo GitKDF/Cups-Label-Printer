@@ -20,6 +20,9 @@ RUN rm /etc/cups/process_labels/process_labels_split_part*
 # Copy the backend script
 COPY label-backend.sh /usr/lib/cups/backend/label-backend
 
+# Copy the contents of /etc/cups/ to /etc/cups-bak/
+RUN mkdir -p /etc/cups-bak && cp -r /etc/cups/* /etc/cups-bak/
+
 # Set ownership and permissions
 RUN chown root:root /usr/lib/cups/backend/label-backend && chmod 755 /usr/lib/cups/backend/label-backend
 
@@ -28,3 +31,7 @@ ENV dpi=600
 ENV error_margin_percent=20
 ENV set_margin=0.1
 ENV ant_threshold=0.2
+
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
