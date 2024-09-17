@@ -65,6 +65,73 @@ def check_dimensions(image, target_width, target_height, dpi, error_margin_perce
     
     return width_within_margin and height_within_margin
 
+def check_ratio(image, target_width, target_height, dpi, error_margin_percent):
+    height, width = image.shape[:2]
+    error_margin = error_margin_percent / 100.0
+    
+    # Calculate the target ratio
+    target_ratio = min(target_width, target_height) / max(target_width, target_height)
+    
+    # Calculate the image ratio
+    image_ratio = min(height, width) / max(height, width)
+    
+    # Check if the image ratio is within the error margin of the target ratio
+    ratio_within_margin = abs(image_ratio - target_ratio) <= target_ratio * error_margin
+    
+    return ratio_within_margin
+
+def validate_barcode_and_separator(image, dpi):
+    height, width = image.shape[:2]
+    
+    # Rotate the image if width is greater than height
+    if width > height:
+        image = cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
+        height, width = image.shape[:2]
+    
+    # Crop the image by 0.1 inches on all sides
+    crop_margin = int(0.1 * dpi)
+    image = image[crop_margin:height-crop_margin, crop_margin:width-crop_margin]
+    height, width = image.shape[:2]
+    
+    # Initialize flags
+    barcode_found = False
+    black_line_found = False
+    counter = 0
+    
+    # Scan top to bottom for rows that meet the criteria
+    for i in range(1, height):
+        row = image[i]
+        prev_row = image[i-1]
+        
+        # Check for black line
+        if np.all(row == 0):
+            black_line_found = True
+        
+        # Check for rows that are not all white or all black and identical to the row above
+        if not np.all(row == 255) and not np.all(row == 0) and np.array_equal(row, prev_row):
+            counter += 1
+        else:
+            counter = 0
+        
+        # Check if the counter reaches 0.5 * dpi
+        if counter >= 0.5 * dpi:
+            # Crop the row of any white pixels on the left and right
+            non_white_indices = np.where(row != 255)[0]
+            if len(non_white_indices) > 0:
+                left = non_white_indices[0]
+                right = non_white_indices[-1]
+                cropped_row = row[left:right+1]
+                
+                # Check if the resulting width is at least 65% of the image width
+                if len(cropped_row) >= 0.65 * width:
+                    barcode_found = True
+        
+        # Exit if both flags are true
+        if barcode_found and black_line_found:
+            return True
+    
+    return False
+
 def process_document_page(doc, page_num, dpi, error_margin_percent, set_margin, output_doc, ant_threshold):
     def process_rect(rect, doc, page_num, output_doc, dpi, set_margin, x_offset, y_offset):
         margin = set_margin * 72  # Convert margin from inches to points
@@ -114,7 +181,8 @@ def process_document_page(doc, page_num, dpi, error_margin_percent, set_margin, 
         if clip_rect == page.rect:
             valid_dimensions = (
                 check_dimensions(cropped_image, 4, 6, dpi, error_margin_percent) or 
-                check_dimensions(cropped_image, 6, 4, dpi, error_margin_percent)
+                check_dimensions(cropped_image, 6, 4, dpi, error_margin_percent) or
+                check_ratio(cropped_image, 4, 6, dpi, error_margin_percent)
             )
         else:
             # Check if page.rect.width is greater than page.rect.height
@@ -125,8 +193,9 @@ def process_document_page(doc, page_num, dpi, error_margin_percent, set_margin, 
         
         # Use valid_dimensions in your original line
         if valid_dimensions:
-            process_rect(cropped_rect, doc, page_num, output_doc, dpi, set_margin, clip_rect.x0, clip_rect.y0)
-            return True
+            if validate_barcode_and_separator(cropped_image, dpi):
+                process_rect(cropped_rect, doc, page_num, output_doc, dpi, set_margin, clip_rect.x0, clip_rect.y0)
+                return True
         return False
 
     # Initial call with the whole page boundary
@@ -136,21 +205,21 @@ def process_document_page(doc, page_num, dpi, error_margin_percent, set_margin, 
     
     if not process_page(doc, page_num, rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold):
         # Create a temporary document to handle splitting
-        temp_doc = fitz.open()
+        # temp_doc = fitz.open()
         if rect.width > rect.height:
             # Split the page into left and right halves
-            left_rect = fitz.Rect(0, 0, rect.width / 2, rect.height)
-            right_rect = fitz.Rect(rect.width / 2, 0, rect.width, rect.height)
+            left_rect = fitz.Rect(0, 0, 5.25 * 72, rect.height)            # left 5.25" time 72 points per inch
+            right_rect = fitz.Rect(5.75 * 72, 0, rect.width, rect.height)  # right 5.25" time 72 points per inch
             
             # Process the left and right halves
             process_page(doc, page_num, left_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
             process_page(doc, page_num, right_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
         else:
             # Split the page into top and bottom halves
-            top_rect = fitz.Rect(0, 0, rect.width, rect.height / 2)
-            bottom_rect = fitz.Rect(0, rect.height / 2, rect.width, rect.height)
+            top_rect = fitz.Rect(0, 0, rect.width, 5.25 * 72)               # top 5.25" time 72 points per inch
+            bottom_rect = fitz.Rect(0, 5.75 * 72, rect.width, rect.height)  # bottom 5.25" time 72 points per inch
             
-            # Process the left and right halves
+            # Process the top and bottom halves
             process_page(doc, page_num, top_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
             process_page(doc, page_num, bottom_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
 
