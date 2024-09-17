@@ -24,7 +24,6 @@ COPY label-backend.sh /usr/lib/cups/backend/label-backend
 RUN chown root:root /usr/lib/cups/backend/label-backend && chmod 755 /usr/lib/cups/backend/label-backend
 
 # Set default environment variables
-ENV output_path="/tmp/label_print_job.pdf"
 ENV dpi=600
 ENV error_margin_percent=20
 ENV set_margin=0.1
