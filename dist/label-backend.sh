@@ -13,6 +13,21 @@ process_ps() {
 
     echo "$ps_bytes" | /usr/lib/cups/filter/pstopdffx 1 1 1 1 > "$pdf_path"
 
+    # Check if settings.txt exists
+    if [ -f /etc/cups/process_labels/settings.txt ]; then
+        # Get values from settings.txt
+        local dpi=$(grep dpi /etc/cups/process_labels/settings.txt | awk -F '=' '{print $2}')
+        local error_margin_percent=$(grep error_margin_percent /etc/cups/process_labels/settings.txt | awk -F '=' '{print $2}')
+        local set_margin=$(grep set_margin /etc/cups/process_labels/settings.txt | awk -F '=' '{print $2}')
+        local ant_threshold=$(grep ant_threshold /etc/cups/process_labels/settings.txt | awk -F '=' '{print $2}')
+    else
+        # Use default values if settings.txt doesn't exist
+        local dpi=600
+        local error_margin_percent=20
+        local set_margin=0.1
+        local ant_threshold=0.2
+    fi
+
     # Process PDF
     /etc/cups/process_labels/process_labels.elf "$pdf_path" "$dpi" "$error_margin_percent" "$set_margin" "$output_path" "$ant_threshold"
     
