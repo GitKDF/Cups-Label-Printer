@@ -8,6 +8,10 @@ COPY /dist/printers.conf /etc/cups/
 COPY /dist/Label_Printer.ppd /etc/cups/ppd/
 COPY /dist/dummy.ppd /etc/cups/ppd/
 
+# Copy settings file
+RUN mkdir -p /etc/settings-bak
+COPY /settings.txt /etc/settings-bak
+
 # Copy the split ELF file chunks
 COPY /dist/process_labels_split_part* /etc/cups/process_labels/
 
