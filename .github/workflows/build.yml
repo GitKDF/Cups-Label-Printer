@@ -8,6 +8,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: contains(github.event.head_commit.message, 'process_labels.py')
 
     steps:
       - name: Checkout repository
@@ -38,24 +39,25 @@ jobs:
 
       - name: Configure Git identity
         run: |
-          git config user.name ${{ secrets.GIT_USER_NAME }}
+          git config user.name ${{ secrets.GIT_user }}
           git config user.email ${{ secrets.GIT_USER_EMAIL }}
 
       - name: Commit changes
         run: git commit -m "Build and push ELF file (split to 50MB)"
 
       - name: Push to repository
-        run: |
-          if git diff --cached --quiet; then
-            echo "no_changes=true" >> $GITHUB_ENV
-          else
-            echo "no_changes=false" >> $GITHUB_ENV
-            git push origin main
-          fi
+        run: git push origin main
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [build]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
       - name: Build Docker image
-        run: |
-          docker build -t gitkdf/cups-label-printer:latest .
+        run: docker build -t gitkdf/cups-label-printer:latest .
 
       - name: Log in to DockerHub
         uses: docker/login-action@v2
