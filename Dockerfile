@@ -31,12 +31,6 @@ RUN mkdir -p /etc/cups-bak && cp -r /etc/cups/* /etc/cups-bak/
 RUN chown root:root /usr/lib/cups/backend/label-backend && chmod 755 /usr/lib/cups/backend/label-backend
 RUN chown root:root /etc/cups/process_labels/process_labels.elf && chmod 755 /etc/cups/process_labels/process_labels.elf
 
-# Set default environment variables
-ENV dpi=600
-ENV error_margin_percent=20
-ENV set_margin=0.1
-ENV ant_threshold=0.2
-
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
