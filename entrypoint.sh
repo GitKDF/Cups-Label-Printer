@@ -11,8 +11,4 @@ if [ ! -f /etc/cups/process_labels/settings.txt ]; then
     cp -f /etc/settings-bak/settings.txt /etc/cups/process_labels/settings.txt
 fi
 
-# set owner to folder owner
-chown $(stat -c "%u:%g" /etc/cups/process_labels) /etc/cups/process_labels/settings.txt
-chmod 755 /etc/cups/process_labels/settings.txt
-
 exec /root/start-cups.sh "$@"
