@@ -53,6 +53,12 @@ main() {
     if [ "$test_mode" = "TRUE" ]; then
         # Copy the output file to the /output folder
         cp "$output_path" /output/
+        
+        # Set permissions to 644
+        chmod 644 /output/$(basename "$output_path")
+        
+        # Set the owner to the owner of the parent folder
+        chown $(stat -c "%u:%g" /output) /output/$(basename "$output_path")
     else
         # Send Job to real Label Printer
         lp -d Hidden_Label_Printer -o fit-to-page -o resolution=203dpi /tmp/label_print_job.pdf
