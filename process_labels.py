@@ -2,10 +2,38 @@ import fitz  # PyMuPDF
 from PIL import Image
 import cv2
 import numpy as np
+import os
 import argparse
+import sys
+
+# Function to initialize the log file
+def initialize_log():
+    log_path = "/output/process_log.txt"
+    if os.path.exists("/output/"):
+        with open(log_path, 'w') as log_file:
+            log_file.write("Log initialized\n")
+            log_file.flush()
+
+# Function to log errors
+def log_error(message):
+    log_path = "/output/process_log.txt"
+    if os.path.exists("/output/"):
+        with open(log_path, 'a') as log_file:
+            log_file.write(message + "\n")
+            log_file.flush()
+
+# Custom error handler for the argument parser
+class CustomArgumentParser(argparse.ArgumentParser):
+    def error(self, message):
+        log_error(f"Argument error: {message}")
+        super().error(message)
+
+# Initialize the log file at the start of the script
+initialize_log()
 
 def crop_whitespace(image, dpi, ant_threshold):
     def remove_whitespace(image):
+        log_message("Starting to remove whitespace.")
         open_cv_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
         gray = cv2.cvtColor(open_cv_image, cv2.COLOR_BGR2GRAY)
         _, thresh = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY)
@@ -13,9 +41,11 @@ def crop_whitespace(image, dpi, ant_threshold):
         non_zero_points = cv2.findNonZero(thresh_inv)
         x, y, w, h = cv2.boundingRect(non_zero_points)
         cropped_image = open_cv_image[y:y+h, x:x+w]
+        log_message(f"Whitespace removed. Bounding box: ({x}, {y}, {w}, {h})")
         return cropped_image, (x, y, w, h)
 
     def remove_ants(cropped_image, cropped_rect, dpi, ant_threshold):
+        log_message("Starting to remove ants.")
         cropped_image = Image.fromarray(cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB))
         width, height = cropped_image.size
         cropped_pixels = 0
@@ -23,17 +53,18 @@ def crop_whitespace(image, dpi, ant_threshold):
         ant_threshold_pixels = ant_threshold * dpi
 
         while True:
-            # Check if the border pixels are all white
+            log_message(f"Checking border pixels. Cropped pixels: {cropped_pixels}")
             border_white = all(cropped_image.getpixel((x, 0)) == (255, 255, 255) for x in range(width)) and \
                            all(cropped_image.getpixel((x, height-1)) == (255, 255, 255) for x in range(width)) and \
                            all(cropped_image.getpixel((0, y)) == (255, 255, 255) for y in range(height)) and \
                            all(cropped_image.getpixel((width-1, y)) == (255, 255, 255) for y in range(height))
 
             if border_white:
-                # Find the bounding box of non-white pixels
+                log_message("Border pixels are all white.")
                 cropped_image_np = np.array(cropped_image)
                 cropped_image_np = cv2.cvtColor(cropped_image_np, cv2.COLOR_RGB2BGR)
                 cropped_image, (x, y, w, h) = remove_whitespace(cropped_image_np)
+                log_message(f"Ants removed. New bounding box: ({x}, {y}, {w}, {h})")
                 return cropped_image, (cropped_rect[0] + x + cropped_pixels, cropped_rect[1] + y + cropped_pixels, w, h)
 
             cropped_image = cropped_image.crop((1, 1, width - 1, height - 1))
@@ -41,205 +72,219 @@ def crop_whitespace(image, dpi, ant_threshold):
             cropped_pixels += 1
 
             if cropped_pixels > ant_threshold_pixels:
+                log_message("Ant threshold exceeded.")
                 return cropped_image, cropped_rect
 
-    # Initial crop to remove whitespace
+    log_message("Starting initial crop to remove whitespace.")
     cropped_image, cropped_rect = remove_whitespace(image)
 
-    # Further crop to remove ants
+    log_message("Starting further crop to remove ants.")
     cropped_image, cropped_rect = remove_ants(cropped_image, cropped_rect, dpi, ant_threshold)
 
+    log_message("Cropping complete.")
     return cropped_image, cropped_rect
 
 def check_dimensions(image, target_width, target_height, dpi, error_margin_percent):
-    # Convert the PIL image to a NumPy array
+    log_message("Checking dimensions.")
     image = np.array(image)
     
     height, width = image.shape[:2]
     error_margin = error_margin_percent / 100.0
     
-    # Calculate the target dimensions in pixels
     target_width_px = target_width * dpi
     target_height_px = target_height * dpi
     
-    # Check if the actual dimensions are within the error margin
     width_within_margin = abs(width - target_width_px) <= target_width_px * error_margin
     height_within_margin = abs(height - target_height_px) <= target_height_px * error_margin
     
+    log_message(f"Dimensions check: width_within_margin={width_within_margin}, height_within_margin={height_within_margin}")
     return width_within_margin and height_within_margin
 
 def check_ratio(image, target_width, target_height, dpi, error_margin_percent):
-    # Convert the PIL image to a NumPy array
+    log_message("Checking ratio.")
     image = np.array(image)
     
     height, width = image.shape[:2]
     error_margin = error_margin_percent / 100.0
     
-    # Calculate the target ratio
     target_ratio = min(target_width, target_height) / max(target_width, target_height)
-    
-    # Calculate the image ratio
     image_ratio = min(height, width) / max(height, width)
     
-    # Check if the image ratio is within the error margin of the target ratio
     ratio_within_margin = abs(image_ratio - target_ratio) <= target_ratio * error_margin
     
+    log_message(f"Ratio check: ratio_within_margin={ratio_within_margin}")
     return ratio_within_margin
 
 def validate_barcode_and_separator(image, dpi):
-    # Convert the PIL image to a NumPy array
+    log_message("Validating barcode and separator.")
     image = np.array(image)
     
     height, width = image.shape[:2]
     
-    # Rotate the image if width is greater than height
     if width > height:
+        log_message("Rotating image.")
         image = cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
         height, width = image.shape[:2]
     
-    # Crop the image by 0.1 inches on all sides
     crop_margin = int(0.1 * dpi)
     image = image[crop_margin:height-crop_margin, crop_margin:width-crop_margin]
     height, width = image.shape[:2]
     
-    # Initialize flags
     barcode_found = False
     black_line_found = False
     counter = 0
     
-    # Scan top to bottom for rows that meet the criteria
     for i in range(1, height):
         row = image[i]
         prev_row = image[i-1]
         
-        # Check for black line
         if np.all(row == 0):
             black_line_found = True
+            log_message("Black line found.")
         
-        # Check for rows that are not all white or all black and identical to the row above
         if not np.all(row == 255) and not np.all(row == 0) and np.array_equal(row, prev_row):
             counter += 1
         else:
             counter = 0
         
-        # Check if the counter reaches 0.5 * dpi
         if counter >= 0.5 * dpi:
-            # Crop the row of any white pixels on the left and right
             non_white_indices = np.where(row != 255)[0]
             if len(non_white_indices) > 0:
                 left = non_white_indices[0]
                 right = non_white_indices[-1]
                 cropped_row = row[left:right+1]
                 
-                # Check if the resulting width is at least 65% of the image width
                 if len(cropped_row) >= 0.65 * width:
                     barcode_found = True
+                    log_message("Barcode found.")
         
-        # Exit if both flags are true
         if barcode_found and black_line_found:
+            log_message("Barcode and black line found.")
             return True
     
+    log_message("Barcode and black line not found.")
     return False
 
 def process_document_page(doc, page_num, dpi, error_margin_percent, set_margin, output_doc, ant_threshold):
     def process_rect(rect, doc, page_num, output_doc, dpi, set_margin, x_offset, y_offset):
-        margin = set_margin * 72  # Convert margin from inches to points
-        
-        # Convert rect values from pixels to points
-        x, y, w, h = rect
-        x = ( x * 72 / dpi ) + x_offset
-        y = ( y * 72 / dpi ) + y_offset
-        w = w * 72 / dpi
-        h = h * 72 / dpi
-        
-        if w > h:
-            new_page = output_doc.new_page(width=6 * 72, height=4 * 72)
-            adjusted_rect = fitz.Rect(margin, margin, 6 * 72 - margin, 4 * 72 - margin)
-            new_page.show_pdf_page(adjusted_rect, doc, page_num, clip=fitz.Rect(x, y, x + w, y + h))
-            new_page.set_rotation(90)
-        else:
-            new_page = output_doc.new_page(width=4 * 72, height=6 * 72)
-            adjusted_rect = fitz.Rect(margin, margin, 4 * 72 - margin, 6 * 72 - margin)
-            new_page.show_pdf_page(adjusted_rect, doc, page_num, clip=fitz.Rect(x, y, x + w, y + h))
+        try:
+            margin = set_margin * 72  # Convert margin from inches to points
+            
+            # Convert rect values from pixels to points
+            x, y, w, h = rect
+            x = ( x * 72 / dpi ) + x_offset
+            y = ( y * 72 / dpi ) + y_offset
+            w = w * 72 / dpi
+            h = h * 72 / dpi
+            
+            if w > h:
+                new_page = output_doc.new_page(width=6 * 72, height=4 * 72)
+                adjusted_rect = fitz.Rect(margin, margin, 6 * 72 - margin, 4 * 72 - margin)
+                new_page.show_pdf_page(adjusted_rect, doc, page_num, clip=fitz.Rect(x, y, x + w, y + h))
+                new_page.set_rotation(90)
+            else:
+                new_page = output_doc.new_page(width=4 * 72, height=6 * 72)
+                adjusted_rect = fitz.Rect(margin, margin, 4 * 72 - margin, 6 * 72 - margin)
+                new_page.show_pdf_page(adjusted_rect, doc, page_num, clip=fitz.Rect(x, y, x + w, y + h))
+            log_message(f"Processed rectangle: {rect}")
+        except Exception as e:
+            log_message(f"Error processing rectangle: {str(e)}")
+            raise
 
     def process_page(doc, page_num, clip_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold):
-        page = doc.load_page(page_num)
-        pix = page.get_pixmap(dpi=dpi, clip=clip_rect)
-        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-    
-        # Convert the PIL image to a NumPy array
-        img_np = np.array(img)
+        try:
+            page = doc.load_page(page_num)
+            pix = page.get_pixmap(dpi=dpi, clip=clip_rect)
+            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
         
-        # Convert the image to grayscale
-        gray_img = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
-        
-        # Apply the threshold
-        threshold = 20
-        _, thresholded_img = cv2.threshold(gray_img, threshold, 255, cv2.THRESH_BINARY)
-        
-        # Convert the modified image back to a PIL image
-        img = Image.fromarray(thresholded_img)
+            # Convert the PIL image to a NumPy array
+            img_np = np.array(img)
+            
+            # Convert the image to grayscale
+            gray_img = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
+            
+            # Apply the threshold
+            threshold = 20
+            _, thresholded_img = cv2.threshold(gray_img, threshold, 255, cv2.THRESH_BINARY)
+            
+            # Convert the modified image back to a PIL image
+            img = Image.fromarray(thresholded_img)
 
-        # Crop Image of whitespace and ants
-        cropped_image, cropped_rect = crop_whitespace(img, dpi, ant_threshold)
-        
-        # Initialize valid_dimensions to False
-        valid_dimensions = False
-        
-        # Check if clip_rect is equal to page.rect
-        if clip_rect == page.rect:
-            valid_dimensions = (
-                check_dimensions(cropped_image, 4, 6, dpi, error_margin_percent) or 
-                check_dimensions(cropped_image, 6, 4, dpi, error_margin_percent) or
-                check_ratio(cropped_image, 4, 6, dpi, error_margin_percent)
-            )
-        else:
-            # Check if page.rect.width is greater than page.rect.height
-            if page.rect.width > page.rect.height:
-                valid_dimensions = check_dimensions(cropped_image, 4, 6, dpi, error_margin_percent)
+            # Crop Image of whitespace and ants
+            cropped_image, cropped_rect = crop_whitespace(img, dpi, ant_threshold)
+            
+            # Initialize valid_dimensions to False
+            valid_dimensions = False
+            
+            # Check if clip_rect is equal to page.rect
+            if clip_rect == page.rect:
+                # Check for valid dimensions or valid ratio
+                valid_dimensions = (
+                    check_dimensions(cropped_image, 4, 6, dpi, error_margin_percent) or 
+                    check_dimensions(cropped_image, 6, 4, dpi, error_margin_percent) or
+                    check_ratio(cropped_image, 4, 6, dpi, error_margin_percent)
+                )
             else:
-                valid_dimensions = check_dimensions(cropped_image, 6, 4, dpi, error_margin_percent)
-        
-        # Use valid_dimensions in your original line
-        if valid_dimensions:
-            if validate_barcode_and_separator(cropped_image, dpi):
-                process_rect(cropped_rect, doc, page_num, output_doc, dpi, set_margin, clip_rect.x0, clip_rect.y0)
-                return True
-        return False
+                # Check if page.rect.width is greater than page.rect.height and check for corresponding valid dimensions
+                if page.rect.width > page.rect.height:
+                    valid_dimensions = check_dimensions(cropped_image, 4, 6, dpi, error_margin_percent)
+                else:
+                    valid_dimensions = check_dimensions(cropped_image, 6, 4, dpi, error_margin_percent)
+            
+            if valid_dimensions:
+                if validate_barcode_and_separator(cropped_image, dpi):
+                    process_rect(cropped_rect, doc, page_num, output_doc, dpi, set_margin, clip_rect.x0, clip_rect.y0)
+                    log_message(f"Processed page {page_num} with clip_rect {clip_rect}")
+                    return True
+            log_message(f"Page {page_num} did not meet validation criteria.")
+            return False
+        except Exception as e:
+            log_message(f"Error processing page {page_num}: {str(e)}")
+            raise
 
-    # Initial call with the whole page boundary
-    page = doc.load_page(page_num)
-    page.set_rotation(0)
-    rect = fitz.Rect(0, 0, page.rect.width, page.rect.height)
-    
-    if not process_page(doc, page_num, rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold):
-        # Create a temporary document to handle splitting
-        # temp_doc = fitz.open()
-        if rect.width > rect.height:
-            # Split the page into left and right halves
-            left_rect = fitz.Rect(0, 0, 5.25 * 72, rect.height)            # left 5.25" time 72 points per inch
-            right_rect = fitz.Rect(5.75 * 72, 0, rect.width, rect.height)  # right 5.25" time 72 points per inch
-            
-            # Process the left and right halves
-            process_page(doc, page_num, left_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
-            process_page(doc, page_num, right_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
-        else:
-            # Split the page into top and bottom halves
-            top_rect = fitz.Rect(0, 0, rect.width, 5.25 * 72)               # top 5.25" time 72 points per inch
-            bottom_rect = fitz.Rect(0, 5.75 * 72, rect.width, rect.height)  # bottom 5.25" time 72 points per inch
-            
-            # Process the top and bottom halves
-            process_page(doc, page_num, top_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
-            process_page(doc, page_num, bottom_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
+    try:
+        log_message(f"Starting to process document page {page_num}.")
+        # Initial call with the whole page boundary
+        page = doc.load_page(page_num)
+        page.set_rotation(0)
+        rect = fitz.Rect(0, 0, page.rect.width, page.rect.height)
+        
+        if not process_page(doc, page_num, rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold):
+            if rect.width > rect.height:
+                # Split the page into left and right halves
+                left_rect = fitz.Rect(0, 0, 5.25 * 72, rect.height)            # left 5.25" time 72 points per inch
+                right_rect = fitz.Rect(5.75 * 72, 0, rect.width, rect.height)  # right 5.25" time 72 points per inch
+                
+                # Process the left and right halves
+                process_page(doc, page_num, left_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
+                process_page(doc, page_num, right_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
+            else:
+                # Split the page into top and bottom halves
+                top_rect = fitz.Rect(0, 0, rect.width, 5.25 * 72)               # top 5.25" time 72 points per inch
+                bottom_rect = fitz.Rect(0, 5.75 * 72, rect.width, rect.height)  # bottom 5.25" time 72 points per inch
+                
+                # Process the top and bottom halves
+                process_page(doc, page_num, top_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
+                process_page(doc, page_num, bottom_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
+        log_message(f"Finished processing document page {page_num}.")
+    except Exception as e:
+        log_message(f"Error processing document page {page_num}: {str(e)}")
+        raise
 
 def process_pdf(pdf_path, dpi, error_margin_percent, set_margin, output_path, ant_threshold):
-    doc = fitz.open(pdf_path)
-    output_doc = fitz.open()
-    
-    for page_num in range(len(doc)):
-        process_document_page(doc, page_num, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
-    
-    output_doc.save(output_path)
+    try:
+        log_message(f"Starting to process PDF: {pdf_path}")
+        doc = fitz.open(pdf_path)
+        output_doc = fitz.open()
+        
+        for page_num in range(len(doc)):
+            process_document_page(doc, page_num, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
+        
+        output_doc.save(output_path)
+        log_message(f"Finished processing PDF. Output saved to: {output_path}")
+    except Exception as e:
+        log_message(f"Error processing PDF: {str(e)}")
+        raise
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process a PDF document.")
@@ -250,6 +295,9 @@ if __name__ == "__main__":
     parser.add_argument("output_path", type=str, help="Path to save the output PDF file.")
     parser.add_argument("ant_threshold", type=float, help="Ant threshold in inches.")
     
-    args = parser.parse_args()
-    
-    process_pdf(args.pdf_path, args.dpi, args.error_margin_percent, args.set_margin, args.output_path, args.ant_threshold)
+    try:
+        args = parser.parse_args()
+        process_pdf(args.pdf_path, args.dpi, args.error_margin_percent, args.set_margin, args.output_path, args.ant_threshold)
+    except Exception as e:
+        log_error(f"An error occurred: {str(e)}")
+        raise
