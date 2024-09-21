@@ -105,7 +105,7 @@ main() {
             write_to_output_log "Cancelled job $job_id"
         fi
 
-        if [ "${TestMode:-}" = "TRUE" ]; then
+        if [ "$test_mode" = "TRUE" ]; then
             cp /tmp/process_log.txt /output/
         fi
         
