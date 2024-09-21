@@ -68,6 +68,11 @@ main() {
 
     if [ "$test_mode" = "TRUE" ]; then
         create_output_log
+    else
+        # Delete the log file if it exists
+        if [ -f "/output/process_log.txt" ]; then
+            rm /output/process_log.txt
+        fi
     fi
     
     # Process the PostScript
