@@ -15,11 +15,9 @@ COPY /settings.txt /etc/settings-bak
 # Copy the split ELF file chunks
 COPY /dist/process_labels_split_part* /etc/cups/process_labels/
 
-# Recombine the split ELF file chunks
-RUN cat /etc/cups/process_labels/process_labels_split_part* > /etc/cups/process_labels/process_labels.elf
-
-# Remove chunk files
-RUN rm /etc/cups/process_labels/process_labels_split_part*
+# Recombine the split ELF file chunks then remove chunk files
+RUN cat /etc/cups/process_labels/process_labels_split_part* > /etc/cups/process_labels/process_labels.elf && \
+    rm /etc/cups/process_labels/process_labels_split_part*
 
 # Copy the backend script
 COPY /dist/label-backend.sh /usr/lib/cups/backend/label-backend
