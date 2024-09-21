@@ -8,16 +8,9 @@ import sys
 
 log_path = "/output/process_log.txt"
 
-# Function to initialize the log file
-def initialize_log():
-    if os.path.exists("/output/"):
-        with open(log_path, 'w') as log_file:
-            log_file.write("Log initialized\n")
-            log_file.flush()
-
 # Function to log errors
 def log_message(message):
-    if os.path.exists("/output/"):
+    if os.path.exists(log_path):
         with open(log_path, 'a') as log_file:
             log_file.write(message + "\n")
             log_file.flush()
