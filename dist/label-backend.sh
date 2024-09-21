@@ -86,7 +86,7 @@ main() {
     fi
 
     if [ $? -eq 0 ]; then
-        if [ "${TestMode:-}" = "TRUE" ]; then
+        if [ "$test_mode" = "TRUE" ]; then
             write_to_output_log "JobCrop: Processed job sent to /output/"
             cp /tmp/process_log.txt /output/
         else
