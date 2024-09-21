@@ -6,7 +6,7 @@ import os
 import argparse
 import sys
 
-log_path = "/output/process_log.txt"
+log_path = "/tmp/process_log.txt"
 
 # Function to log errors
 def log_message(message):
