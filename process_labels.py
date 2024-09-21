@@ -6,17 +6,17 @@ import os
 import argparse
 import sys
 
+log_path = "/output/process_log.txt"
+
 # Function to initialize the log file
 def initialize_log():
-    log_path = "/output/process_log.txt"
     if os.path.exists("/output/"):
         with open(log_path, 'w') as log_file:
             log_file.write("Log initialized\n")
             log_file.flush()
 
 # Function to log errors
-def log_error(message):
-    log_path = "/output/process_log.txt"
+def log_message(message):
     if os.path.exists("/output/"):
         with open(log_path, 'a') as log_file:
             log_file.write(message + "\n")
@@ -25,7 +25,7 @@ def log_error(message):
 # Custom error handler for the argument parser
 class CustomArgumentParser(argparse.ArgumentParser):
     def error(self, message):
-        log_error(f"Argument error: {message}")
+        log_message(f"Argument error: {message}")
         super().error(message)
 
 # Initialize the log file at the start of the script
@@ -299,5 +299,5 @@ if __name__ == "__main__":
         args = parser.parse_args()
         process_pdf(args.pdf_path, args.dpi, args.error_margin_percent, args.set_margin, args.output_path, args.ant_threshold)
     except Exception as e:
-        log_error(f"An error occurred: {str(e)}")
+        log_message(f"An error occurred: {str(e)}")
         raise
