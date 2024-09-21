@@ -4,18 +4,18 @@ output_path="/tmp/label_print_job.pdf"
 
 # Function to create or clear the output log
 create_output_log() {
-    if [ -f "/output/process_log.txt" ]; then
-        > /output/process_log.txt
+    if [ -f "/tmp/process_log.txt" ]; then
+        > /tmp/process_log.txt
     else
-        touch /output/process_log.txt
+        touch /tmp/process_log.txt
     fi
 }
 
 # Function to write to the output log
 write_to_output_log() {
     local message=$1
-    if [ -f "/output/process_log.txt" ]; then
-        echo "$message" >> /output/process_log.txt
+    if [ -f "/tmp/process_log.txt" ]; then
+        echo "$message" >> /tmp/process_log.txt
     fi
     echo $message >&2
 }
@@ -88,6 +88,7 @@ main() {
     if [ $? -eq 0 ]; then
         if [ "${TestMode:-}" = "TRUE" ]; then
             write_to_output_log "JobCrop: Processed job sent to /output/"
+            cp /tmp/process_log.txt /output/
         else
             write_to_output_log "JobCrop: Processed job sent to Physical Label Printer"
         fi
@@ -104,6 +105,10 @@ main() {
             write_to_output_log "Cancelled job $job_id"
         fi
 
+        if [ "${TestMode:-}" = "TRUE" ]; then
+            cp /tmp/process_log.txt /output/
+        fi
+        
         exit 1
     fi
 }
