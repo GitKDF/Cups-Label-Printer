@@ -76,7 +76,7 @@ main() {
     fi
     
     # Process the PostScript
-    write_to_output_log "JobCrop: Processing input file $input_data"
+    write_to_output_log "JobCrop: Processing input postscript."
     process_ps "$input_data"
 
     # Check if TestMode is set to TRUE
