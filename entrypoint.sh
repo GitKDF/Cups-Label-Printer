@@ -11,4 +11,10 @@ if [ ! -f /etc/cups/process_labels/settings.txt ]; then
     cp -f /etc/settings-bak/settings.txt /etc/cups/process_labels/settings.txt
 fi
 
+if [ ! -d "/output" ]; then
+    mkdir -p /output
+fi
+# Set permissions to 766
+chmod 766 /output
+
 exec /root/start-cups.sh "$@"
