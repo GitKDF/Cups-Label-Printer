@@ -4,10 +4,6 @@ output_path="/tmp/label_print_job.pdf"
 
 # Function to create or clear the output log
 create_output_log() {
-    if [ ! -d "/output" ]; then
-        mkdir -p /output
-    fi
-
     if [ -f "/output/process_log.txt" ]; then
         > /output/process_log.txt
     else
