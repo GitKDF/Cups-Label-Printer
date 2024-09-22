@@ -108,6 +108,8 @@ main() {
         if [ "$test_mode" = "TRUE" ]; then
             cp /tmp/process_log.txt /output/
         fi
+
+        echo -e "\a\a\a"
         
         exit 1
     fi
