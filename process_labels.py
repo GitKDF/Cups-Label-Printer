@@ -1,5 +1,5 @@
 import fitz  # PyMuPDF
-from PIL import Image
+from PIL import Image, ImageOps
 import cv2
 import numpy as np
 import os
@@ -12,7 +12,7 @@ log_path = "/tmp/process_log.txt"
 def log_message(message):
     if os.path.exists(log_path):
         with open(log_path, 'a') as log_file:
-            log_file.write("ProcPDFpy: " + message + "\n")
+            log_file.write("JobCrop: ProcPDF: " + message + "\n")
             log_file.flush()
 
 # Custom error handler for the argument parser
@@ -34,6 +34,43 @@ def isPage4by6(rect):
        (rect.width == height_6_inch and rect.height == width_4_inch):
         return True
     return False
+
+def marginNeeded(doc, page_num, set_margin):
+    # Convert set_margin from inches to points (1 inch = 72 points)
+    margin_points = set_margin * 72
+    
+    # Convert the page to an image at 72 dpi
+    page = doc.load_page(page_num)
+    pix = page.get_pixmap(dpi=72)
+    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+    
+    # Convert the image to grayscale
+    img = img.convert("L")
+    
+    # Apply thresholding
+    threshold = 127
+    img = img.point(lambda p: p > threshold and 255)
+    
+    # Convert image to numpy array for pixel manipulation
+    img_array = np.array(img)
+    
+    # Function to check if the border pixels are all white
+    def is_border_white(image):
+        return (image[0, :] == 255).all() and (image[-1, :] == 255).all() and \
+               (image[:, 0] == 255).all() and (image[:, -1] == 255).all()
+    
+    cropped_pixels = 0
+    
+    # Loop to crop the image
+    while cropped_pixels < margin_points:
+        if is_border_white(img_array):
+            img_array = img_array[1:-1, 1:-1]
+            cropped_pixels += 1
+        else:
+            break
+    
+    # Return the converted value of set_margin minus the number of pixels cropped
+    return margin_points - cropped_pixels
 
 def crop_whitespace(image, dpi, ant_threshold):
     def remove_whitespace(image):
@@ -181,7 +218,9 @@ def process_document_page(doc, page_num, dpi, error_margin_percent, set_margin, 
             w = w * 72 / dpi
             h = h * 72 / dpi
 
-            # add code to check if page is 4*6, and if so set margin based on new function to check if it needs margins.
+            # if page is 4*6 and rect is the full page rect, set margin needed to get full margin width in white.
+            if (doc[page_num].rect == rect) and isPage4by6(rect):
+                margin = marginNeeded(doc, page_num, set_margin)
 
             if w > h:
                 new_page = output_doc.new_page(width=6 * 72, height=4 * 72)
