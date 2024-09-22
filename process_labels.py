@@ -12,7 +12,7 @@ log_path = "/tmp/process_log.txt"
 def log_message(message):
     if os.path.exists(log_path):
         with open(log_path, 'a') as log_file:
-            log_file.write(message + "\n")
+            log_file.write("ProcPDFpy: " + message + "\n")
             log_file.flush()
 
 # Custom error handler for the argument parser
@@ -288,11 +288,16 @@ def process_pdf(pdf_path, dpi, error_margin_percent, set_margin, output_path, an
         doc = fitz.open(pdf_path)
         output_doc = fitz.open()
         
+        success = False
         for page_num in range(len(doc)):
-            process_document_page(doc, page_num, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
-        
+            success = success or process_document_page(doc, page_num, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
+
+        if not success:
+            return False
+            
         output_doc.save(output_path)
         log_message(f"Finished processing PDF. Output saved to: {output_path}")
+        return True
     except Exception as e:
         log_message(f"Error processing PDF: {str(e)}")
         raise
@@ -308,7 +313,10 @@ if __name__ == "__main__":
     
     try:
         args = parser.parse_args()
-        process_pdf(args.pdf_path, args.dpi, args.error_margin_percent, args.set_margin, args.output_path, args.ant_threshold)
+        success = process_pdf(args.pdf_path, args.dpi, args.error_margin_percent, args.set_margin, args.output_path, args.ant_threshold)
+        if not success:
+            log_message("No Labels Detected.")
+            sys.exit(1)  # Exit with non-zero code if no labels were detected
     except Exception as e:
         log_message(f"An error occurred: {str(e)}")
         raise
