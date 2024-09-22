@@ -24,6 +24,17 @@ class CustomArgumentParser(argparse.ArgumentParser):
 # Initialize the log file at the start of the script
 initialize_log()
 
+def isPage4by6(rect):
+    # Define the dimensions in points (1 inch = 72 points)
+    width_4_inch = 4 * 72
+    height_6_inch = 6 * 72
+
+    # Check if the rect matches 4"x6" or 6"x4"
+    if (rect.width == width_4_inch and rect.height == height_6_inch) or \
+       (rect.width == height_6_inch and rect.height == width_4_inch):
+        return True
+    return False
+
 def crop_whitespace(image, dpi, ant_threshold):
     def remove_whitespace(image):
         log_message("Starting to remove whitespace.")
@@ -169,7 +180,9 @@ def process_document_page(doc, page_num, dpi, error_margin_percent, set_margin, 
             y = ( y * 72 / dpi ) + y_offset
             w = w * 72 / dpi
             h = h * 72 / dpi
-            
+
+            # add code to check if page is 4*6, and if so set margin based on new function to check if it needs margins.
+
             if w > h:
                 new_page = output_doc.new_page(width=6 * 72, height=4 * 72)
                 adjusted_rect = fitz.Rect(margin, margin, 6 * 72 - margin, 4 * 72 - margin)
@@ -186,6 +199,11 @@ def process_document_page(doc, page_num, dpi, error_margin_percent, set_margin, 
 
     def process_page(doc, page_num, clip_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold):
         try:
+            if isPage4by6(clip_rect):
+                process_rect(clip_rect, doc, page_num, output_doc, dpi, set_margin, clip_rect.x0, clip_rect.y0)
+                log_message(f"Processed page {page_num} with clip_rect {clip_rect}")
+                return True
+                
             page = doc.load_page(page_num)
             pix = page.get_pixmap(dpi=dpi, clip=clip_rect)
             img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
