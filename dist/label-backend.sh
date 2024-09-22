@@ -15,7 +15,7 @@ create_output_log() {
 write_to_output_log() {
     local message=$1
     if [ -f "/tmp/process_log.txt" ]; then
-        echo "$message" >> /tmp/process_log.txt
+        echo "JobCrop: $message" >> /tmp/process_log.txt
     fi
     echo $message >&2
 }
@@ -29,20 +29,20 @@ process_ps() {
     export PRINTER="Label_Printer"
     export PPD="/etc/cups/ppd/dummy.ppd"
 
-    write_to_output_log "JobCrop: Converting PostScript to PDF: $pdf_path"
+    write_to_output_log "Converting PostScript to PDF: $pdf_path"
     echo "$ps_bytes" | /usr/lib/cups/filter/pstopdffx 1 1 1 1 > "$pdf_path"
 
     # Check if settings.txt exists
     if [ -f /etc/cups/process_labels/settings.txt ]; then
         # Get values from settings.txt
-        write_to_output_log "JobCrop: Getting values from settings.txt"
+        write_to_output_log "Getting values from settings.txt"
         local dpi=$(grep dpi /etc/cups/process_labels/settings.txt | awk -F '=' '{print $2}')
         local error_margin_percent=$(grep error_margin_percent /etc/cups/process_labels/settings.txt | awk -F '=' '{print $2}')
         local set_margin=$(grep set_margin /etc/cups/process_labels/settings.txt | awk -F '=' '{print $2}')
         local ant_threshold=$(grep ant_threshold /etc/cups/process_labels/settings.txt | awk -F '=' '{print $2}')
     else
         # Use default values if settings.txt doesn't exist
-        write_to_output_log "JobCrop: settings.txt doesn't exist, using defualt values."
+        write_to_output_log "settings.txt doesn't exist, using defualt values."
         local dpi=600
         local error_margin_percent=20
         local set_margin=0.1
@@ -50,7 +50,7 @@ process_ps() {
     fi
 
     # Process PDF
-    write_to_output_log "JobCrop: Calling process_labels.elf \"$pdf_path\" \"$dpi\" \"$error_margin_percent\" \"$set_margin\" \"$output_path\" \"$ant_threshold\""
+    write_to_output_log "Calling process_labels.elf \"$pdf_path\" \"$dpi\" \"$error_margin_percent\" \"$set_margin\" \"$output_path\" \"$ant_threshold\""
     /etc/cups/process_labels/process_labels.elf "$pdf_path" "$dpi" "$error_margin_percent" "$set_margin" "$output_path" "$ant_threshold"
 }
 
@@ -72,13 +72,13 @@ main() {
     fi
     
     # Process the PostScript
-    write_to_output_log "JobCrop: Processing input postscript."
+    write_to_output_log "Processing input postscript."
     process_ps "$input_data"
 
     # Check if TestMode is set to TRUE
     if [ "$test_mode" = "TRUE" ]; then
         # Copy the output file to the /output folder
-        write_to_output_log "JobCrop: Copying $output_path to /output/"
+        write_to_output_log "Copying $output_path to /output/"
         cp "$output_path" /output/
     else
         # Send Job to real Label Printer
@@ -87,14 +87,14 @@ main() {
 
     if [ $? -eq 0 ]; then
         if [ "$test_mode" = "TRUE" ]; then
-            write_to_output_log "JobCrop: Processed job sent to /output/"
+            write_to_output_log "Processed job sent to /output/"
             cp /tmp/process_log.txt /output/
         else
-            write_to_output_log "JobCrop: Processed job sent to Physical Label Printer"
+            write_to_output_log "Processed job sent to Physical Label Printer"
         fi
         exit 0
     else
-        write_to_output_log "JobCrop: Error processing PostScript"
+        write_to_output_log "Error processing PostScript"
         
         # Get the Job ID from Env Variable
         local job_id
