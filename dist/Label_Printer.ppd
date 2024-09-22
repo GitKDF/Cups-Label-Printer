@@ -1,6 +1,6 @@
 *PPD-Adobe: "4.3"
 *% Custom PPD for Label Printer
-*FormatVerion: "4.3"
+*FormatVersion: "4.3"
 *FileVersion: "1.0"
 *LanguageVersion: English
 *LanguageEncoding: ISOLatin1
@@ -10,3 +10,15 @@
 *ModelName: "Label Printer"
 *ShortNickName: "Label Printer"
 *NickName: "Label Printer"
+
+*PageSize 4x6/4x6: "<</PageSize [288 432]>>setpagedevice"
+*PageSize Letter/8.5x11: "<</PageSize [612 792]>>setpagedevice"
+
+*PageRegion 4x6/4x6: "<</PageSize [288 432]>>setpagedevice"
+*PageRegion Letter/8.5x11: "<</PageSize [612 792]>>setpagedevice"
+
+*ImageableArea 4x6: "0 0 288 432"
+*ImageableArea Letter: "0 0 612 792"
+
+*PaperDimension 4x6: "288 432"
+*PaperDimension Letter: "612 792"
