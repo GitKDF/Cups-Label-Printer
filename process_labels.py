@@ -299,23 +299,27 @@ def process_document_page(doc, page_num, dpi, error_margin_percent, set_margin, 
         page.set_rotation(0)
         rect = fitz.Rect(0, 0, page.rect.width, page.rect.height)
         
-        if not process_page(doc, page_num, rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold):
+        if process_page(doc, page_num, rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold):
+            return True
+        else:
             if rect.width > rect.height:
                 # Split the page into left and right halves
                 left_rect = fitz.Rect(0, 0, 5.25 * 72, rect.height)            # left 5.25" time 72 points per inch
                 right_rect = fitz.Rect(5.75 * 72, 0, rect.width, rect.height)  # right 5.25" time 72 points per inch
                 
                 # Process the left and right halves
-                process_page(doc, page_num, left_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
-                process_page(doc, page_num, right_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
+                result = process_page(doc, page_num, left_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
+                result = result or process_page(doc, page_num, right_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
+                return result
             else:
                 # Split the page into top and bottom halves
                 top_rect = fitz.Rect(0, 0, rect.width, 5.25 * 72)               # top 5.25" time 72 points per inch
                 bottom_rect = fitz.Rect(0, 5.75 * 72, rect.width, rect.height)  # bottom 5.25" time 72 points per inch
                 
                 # Process the top and bottom halves
-                process_page(doc, page_num, top_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
-                process_page(doc, page_num, bottom_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
+                result = process_page(doc, page_num, top_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
+                result = result or process_page(doc, page_num, bottom_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
+                return result
         log_message(f"Finished processing document page {page_num}.")
     except Exception as e:
         log_message(f"Error processing document page {page_num}: {str(e)}")
