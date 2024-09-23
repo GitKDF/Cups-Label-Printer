@@ -24,14 +24,14 @@ class CustomArgumentParser(argparse.ArgumentParser):
 # Initialize the log file at the start of the script
 initialize_log()
 
-def isPage4by6(rect):
+def isPage4by6(rect, error_margin_percent):
     # Define the dimensions in points (1 inch = 72 points)
     width_4_inch = 4 * 72
     height_6_inch = 6 * 72
 
     # Check if the rect matches 4"x6" or 6"x4"
-    if (rect.width == width_4_inch and rect.height == height_6_inch) or \
-       (rect.width == height_6_inch and rect.height == width_4_inch):
+    if (abs(rect.width - width_4_inch) < (width_4_inch * error_margin_percent / 100) and abs(rect.height - height_6_inch) < (height_6_inch * error_margin_percent / 100)) or \
+       (abs(rect.width - height_6_inch) < (height_6_inch * error_margin_percent / 100) and abs(rect.height - width_4_inch) < (width_4_inch * error_margin_percent / 100)):
         return True
     return False
 
@@ -210,17 +210,19 @@ def process_document_page(doc, page_num, dpi, error_margin_percent, set_margin, 
     def process_rect(rect, doc, page_num, output_doc, dpi, set_margin, x_offset, y_offset):
         try:
             margin = set_margin * 72  # Convert margin from inches to points
-            
-            # Convert rect values from pixels to points
             x, y, w, h = rect
-            x = ( x * 72 / dpi ) + x_offset
-            y = ( y * 72 / dpi ) + y_offset
-            w = w * 72 / dpi
-            h = h * 72 / dpi
 
             # if page is 4*6 and rect is the full page rect, set margin needed to get full margin width in white.
-            if (doc[page_num].rect == rect) and isPage4by6(rect):
+            if (doc[page_num].rect == rect) and isPage4by6(rect, error_margin_percent):
+                log_message("Checking Margin Needed.")
                 margin = marginNeeded(doc, page_num, set_margin)
+                log_message(f"Margin needed is {margin / 72} inches")
+            else:
+                # Convert rect values from pixels to points
+                x = ( x * 72 / dpi ) + x_offset
+                y = ( y * 72 / dpi ) + y_offset
+                w = w * 72 / dpi
+                h = h * 72 / dpi
 
             if w > h:
                 new_page = output_doc.new_page(width=6 * 72, height=4 * 72)
@@ -238,9 +240,10 @@ def process_document_page(doc, page_num, dpi, error_margin_percent, set_margin, 
 
     def process_page(doc, page_num, clip_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold):
         try:
-            if isPage4by6(clip_rect):
+            if isPage4by6(clip_rect, error_margin_percent):
+                log_message(f"Page {page_num + 1} is 4x6, processing rect.")
                 process_rect(clip_rect, doc, page_num, output_doc, dpi, set_margin, clip_rect.x0, clip_rect.y0)
-                log_message(f"Processed page {page_num} with clip_rect {clip_rect}")
+                log_message(f"Processed page {page_num + 1} with clip_rect {clip_rect}")
                 return True
                 
             page = doc.load_page(page_num)
@@ -284,16 +287,16 @@ def process_document_page(doc, page_num, dpi, error_margin_percent, set_margin, 
             if valid_dimensions:
                 if validate_barcode_and_separator(cropped_image, dpi):
                     process_rect(cropped_rect, doc, page_num, output_doc, dpi, set_margin, clip_rect.x0, clip_rect.y0)
-                    log_message(f"Processed page {page_num} with clip_rect {clip_rect}")
+                    log_message(f"Processed page {page_num + 1} with clip_rect {clip_rect}")
                     return True
-            log_message(f"Page {page_num} did not meet validation criteria.")
+            log_message(f"Page {page_num + 1} did not meet validation criteria.")
             return False
         except Exception as e:
-            log_message(f"Error processing page {page_num}: {str(e)}")
+            log_message(f"Error processing page {page_num + 1}: {str(e)}")
             raise
 
     try:
-        log_message(f"Starting to process document page {page_num}.")
+        log_message(f"Starting to process document page {page_num + 1}.")
         # Initial call with the whole page boundary
         page = doc.load_page(page_num)
         page.set_rotation(0)
@@ -303,26 +306,32 @@ def process_document_page(doc, page_num, dpi, error_margin_percent, set_margin, 
             return True
         else:
             if rect.width > rect.height:
+                log_message("Splitting Page into Left and Right")
                 # Split the page into left and right halves
                 left_rect = fitz.Rect(0, 0, 5.25 * 72, rect.height)            # left 5.25" time 72 points per inch
                 right_rect = fitz.Rect(5.75 * 72, 0, rect.width, rect.height)  # right 5.25" time 72 points per inch
                 
                 # Process the left and right halves
-                result = process_page(doc, page_num, left_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
-                result = result or process_page(doc, page_num, right_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
-                return result
+                log_message("Processing Left Side of Page")
+                Lresult = process_page(doc, page_num, left_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
+                log_message("Processing Right Side of Page")
+                Rresult = process_page(doc, page_num, right_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
+                return Lresult or Rresult
             else:
+                log_message("Splitting Page into Top and Bottom")
                 # Split the page into top and bottom halves
                 top_rect = fitz.Rect(0, 0, rect.width, 5.25 * 72)               # top 5.25" time 72 points per inch
                 bottom_rect = fitz.Rect(0, 5.75 * 72, rect.width, rect.height)  # bottom 5.25" time 72 points per inch
                 
                 # Process the top and bottom halves
-                result = process_page(doc, page_num, top_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
-                result = result or process_page(doc, page_num, bottom_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
-                return result
-        log_message(f"Finished processing document page {page_num}.")
+                log_message("Processing Top of Page")
+                Tresult = process_page(doc, page_num, top_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
+                log_message("Processing Bottom of Page")
+                Bresult = process_page(doc, page_num, bottom_rect, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
+                return Tresult or Bresult
+        log_message(f"Finished processing document page {page_num + 1}.")
     except Exception as e:
-        log_message(f"Error processing document page {page_num}: {str(e)}")
+        log_message(f"Error processing document page {page_num + 1}: {str(e)}")
         raise
 
 def process_pdf(pdf_path, dpi, error_margin_percent, set_margin, output_path, ant_threshold):
@@ -333,7 +342,10 @@ def process_pdf(pdf_path, dpi, error_margin_percent, set_margin, output_path, an
         
         success = False
         for page_num in range(len(doc)):
-            success = success or process_document_page(doc, page_num, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
+            pagesuccess = process_document_page(doc, page_num, dpi, error_margin_percent, set_margin, output_doc, ant_threshold)
+            success = success or pagesuccess
+            if not pagesuccess:
+                log_message(f"No Label Detected on Page {page_num + 1}")
 
         if not success:
             return False
@@ -344,7 +356,7 @@ def process_pdf(pdf_path, dpi, error_margin_percent, set_margin, output_path, an
     except Exception as e:
         log_message(f"Error processing PDF: {str(e)}")
         raise
-
+        
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process a PDF document.")
     parser.add_argument("pdf_path", type=str, help="Path to the input PDF file.")
