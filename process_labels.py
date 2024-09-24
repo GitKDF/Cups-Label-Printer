@@ -75,41 +75,36 @@ def marginNeeded(doc, page_num, set_margin):
 def crop_whitespace(image, dpi, ant_threshold):
     def remove_whitespace(image):
         log_message("Starting to remove whitespace.")
-        open_cv_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-        gray = cv2.cvtColor(open_cv_image, cv2.COLOR_BGR2GRAY)
-        _, thresh = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY)
+        _, thresh = cv2.threshold(image, 240, 255, cv2.THRESH_BINARY)
         thresh_inv = cv2.bitwise_not(thresh)
         non_zero_points = cv2.findNonZero(thresh_inv)
         x, y, w, h = cv2.boundingRect(non_zero_points)
-        cropped_image = open_cv_image[y:y+h, x:x+w]
+        cropped_image = image[y:y+h, x:x+w]
         log_message(f"Whitespace removed. Bounding box: ({x}, {y}, {w}, {h})")
         return cropped_image, (x, y, w, h)
 
     def remove_ants(cropped_image, cropped_rect, dpi, ant_threshold):
         log_message("Starting to remove ants.")
-        cropped_image = Image.fromarray(cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB))
-        width, height = cropped_image.size
+        height, width = cropped_image.shape
         cropped_pixels = 0
 
-        ant_threshold_pixels = ant_threshold * dpi
+        ant_threshold_pixels = ant_threshold * dpi * 4
 
         while True:
             log_message(f"Checking border pixels. Cropped pixels: {cropped_pixels}")
-            border_white = all(cropped_image.getpixel((x, 0)) == (255, 255, 255) for x in range(width)) and \
-                           all(cropped_image.getpixel((x, height-1)) == (255, 255, 255) for x in range(width)) and \
-                           all(cropped_image.getpixel((0, y)) == (255, 255, 255) for y in range(height)) and \
-                           all(cropped_image.getpixel((width-1, y)) == (255, 255, 255) for y in range(height))
+            border_white = all(cropped_image[0, x] == 255 for x in range(width)) and \
+                           all(cropped_image[height-1, x] == 255 for x in range(width)) and \
+                           all(cropped_image[y, 0] == 255 for y in range(height)) and \
+                           all(cropped_image[y, width-1] == 255 for y in range(height))
 
             if border_white:
                 log_message("Border pixels are all white.")
-                cropped_image_np = np.array(cropped_image)
-                cropped_image_np = cv2.cvtColor(cropped_image_np, cv2.COLOR_RGB2BGR)
-                cropped_image, (x, y, w, h) = remove_whitespace(cropped_image_np)
+                cropped_image, (x, y, w, h) = remove_whitespace(cropped_image)
                 log_message(f"Ants removed. New bounding box: ({x}, {y}, {w}, {h})")
                 return cropped_image, (cropped_rect[0] + x + cropped_pixels, cropped_rect[1] + y + cropped_pixels, w, h)
 
-            cropped_image = cropped_image.crop((1, 1, width - 1, height - 1))
-            width, height = cropped_image.size
+            cropped_image = cropped_image[1:height-1, 1:width-1]
+            height, width = cropped_image.shape
             cropped_pixels += 1
 
             if cropped_pixels > ant_threshold_pixels:
@@ -248,10 +243,7 @@ def process_document_page(doc, page_num, dpi, error_margin_percent, set_margin, 
                 
             page = doc.load_page(page_num)
             pix = page.get_pixmap(dpi=dpi, clip=clip_rect)
-            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-        
-            # Convert the PIL image to a NumPy array
-            img_np = np.array(img)
+            img_np = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
             
             # Convert the image to grayscale
             gray_img = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
@@ -260,11 +252,8 @@ def process_document_page(doc, page_num, dpi, error_margin_percent, set_margin, 
             threshold = 20
             _, thresholded_img = cv2.threshold(gray_img, threshold, 255, cv2.THRESH_BINARY)
             
-            # Convert the modified image back to a PIL image
-            img = Image.fromarray(thresholded_img)
-
             # Crop Image of whitespace and ants
-            cropped_image, cropped_rect = crop_whitespace(img, dpi, ant_threshold)
+            cropped_image, cropped_rect = crop_whitespace(thresholded_img, dpi, ant_threshold)
             
             # Initialize valid_dimensions to False
             valid_dimensions = False
