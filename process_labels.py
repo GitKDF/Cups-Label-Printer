@@ -6,7 +6,7 @@ import os
 import argparse
 import sys
 
-log_path = "/tmp/process_log.txt"
+log_path = "./process_log.txt"
 
 # Function to log errors
 def log_message(message):
@@ -368,6 +368,10 @@ if __name__ == "__main__":
     
     try:
         args = parser.parse_args()
+        
+        # Extract the directory path from output_path and set log_path
+        log_path = os.path.join(os.path.dirname(args.output_path), "process_log.txt")
+        
         success = process_pdf(args.pdf_path, args.dpi, args.error_margin_percent, args.set_margin, args.output_path, args.ant_threshold)
         if not success:
             log_message("No Labels Detected.")
