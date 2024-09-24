@@ -79,11 +79,11 @@ main() {
     
     # Check if TestMode is set to TRUE
     if [ -f "$output_path" ]; then
-        if [ "$test_mode" = "TRUE" ]; then
-            # Copy the output file to the /output folder
-            write_to_output_log "Copying $output_path to /output/"
-            cp "$output_path" /output/
-        else
+        # Copy the output file to the /output folder
+        write_to_output_log "Copying $output_path to /output/"
+        cp "$output_path" /output/
+        
+        if [ "$test_mode" != "TRUE" ]; then
             # Send Job to real Label Printer
             lp -d Hidden_Label_Printer -o fit-to-page -o resolution=203dpi "$job_dir/label_print_job.pdf"
         fi
