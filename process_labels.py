@@ -354,7 +354,7 @@ if __name__ == "__main__":
         
         # Extract the directory path from output_path and set log_path
         log_path = os.path.join(os.path.dirname(args.output_path), "process_log.txt")
-        
+        print(log_path)
         success = process_pdf(args.pdf_path, args.dpi, args.error_margin_percent, args.set_margin, args.output_path, args.ant_threshold)
         if not success:
             log_message("No Labels Detected.")
