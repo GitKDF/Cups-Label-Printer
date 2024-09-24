@@ -85,7 +85,7 @@ def crop_whitespace(image, dpi, ant_threshold):
         height, width = cropped_image.shape
         cropped_pixels = 0
 
-        ant_threshold_pixels = ant_threshold * dpi * 4
+        ant_threshold_pixels = ant_threshold * dpi
 
         while True:
             log_message(f"Checking border pixels. Cropped pixels: {cropped_pixels}")
