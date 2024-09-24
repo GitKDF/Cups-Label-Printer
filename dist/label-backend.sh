@@ -1,28 +1,19 @@
 #!/bin/bash
 
-output_path="/tmp/label_print_job.pdf"
-
-# Function to create or clear the output log
-create_output_log() {
-    if [ -f "/tmp/process_log.txt" ]; then
-        > /tmp/process_log.txt
-    else
-        touch /tmp/process_log.txt
-    fi
-}
+job_dir=""
 
 # Function to write to the output log
 write_to_output_log() {
     local message=$1
-    if [ -f "/tmp/process_log.txt" ]; then
-        echo "JobCrop: $message" >> /tmp/process_log.txt
+    if [ -f "$job_dir/process_log.txt" ]; then
+        echo "JobCrop: $message" >> "$job_dir/process_log.txt"
     fi
     echo $message >&2
 }
 
 process_ps() {
     local ps_bytes="$1"
-    local pdf_path="/tmp/label_input.pdf"
+    local pdf_path="$job_dir/label_input.pdf"
 
     # Convert PostScript to PDF using pstopdf
     export DEVICE_URI="file:///dev/null"
@@ -42,7 +33,7 @@ process_ps() {
         local ant_threshold=$(grep ant_threshold /etc/cups/process_labels/settings.txt | awk -F '=' '{print $2}')
     else
         # Use default values if settings.txt doesn't exist
-        write_to_output_log "settings.txt doesn't exist, using defualt values."
+        write_to_output_log "settings.txt doesn't exist, using default values."
         local dpi=600
         local error_margin_percent=20
         local set_margin=0.1
@@ -55,46 +46,59 @@ process_ps() {
 }
 
 main() {
+    # Delete old JobX folders
+    find /tmp -maxdepth 1 -type d -name 'Job[0-9]*' -mtime +1 -exec rm -rf {} +
+
+    # Create a new JobX folder
+    for i in {1..100}; do
+        if [ ! -d "/tmp/Job$i" ]; then
+            job_dir="/tmp/Job$i"
+            mkdir "$job_dir"
+            break
+        fi
+    done
+
+    output_path="$job_dir/label_print_job.pdf"
+
+    # Create a new output log
+    touch "$job_dir/process_log.txt"
+    
     # Read input data from stdin
     local input_data
     input_data=$(cat)
 
-    # Check for TestMode in settings.txt
-    test_mode=$(grep TestMode /etc/cups/process_labels/settings.txt | awk -F '=' '{print $2}')
-
-    if [ "$test_mode" = "TRUE" ]; then
-        create_output_log
-    else
-        # Delete the log file if it exists
-        if [ -f "/output/process_log.txt" ]; then
-            rm /output/process_log.txt
-        fi
-    fi
+    # Save input_data to job_dir/input_postscript.ps
+    echo "$input_data" > "$job_dir/input_postscript.ps"
     
     # Process the PostScript
     write_to_output_log "Processing input postscript."
     process_ps "$input_data"
 
+    # Check for TestMode in settings.txt
+    test_mode=$(grep TestMode /etc/cups/process_labels/settings.txt | awk -F '=' '{print $2}')
+    
     # Check if TestMode is set to TRUE
-    if [ "$test_mode" = "TRUE" ]; then
-        # Copy the output file to the /output folder
-        write_to_output_log "Copying $output_path to /output/"
-        cp "$output_path" /output/
-    else
-        # Send Job to real Label Printer
-        lp -d Hidden_Label_Printer -o fit-to-page -o resolution=203dpi /tmp/label_print_job.pdf
+    if [ -f "$output_path" ]; then
+        if [ "$test_mode" = "TRUE" ]; then
+            # Copy the output file to the /output folder
+            write_to_output_log "Copying $output_path to /output/"
+            cp "$output_path" /output/
+        else
+            # Send Job to real Label Printer
+            lp -d Hidden_Label_Printer -o fit-to-page -o resolution=203dpi "$job_dir/label_print_job.pdf"
+        fi
     fi
 
-    if [ $? -eq 0 ]; then
+    if [ $? -eq 0 ] && [ -f "$output_path" ]; then
         if [ "$test_mode" = "TRUE" ]; then
             write_to_output_log "Processed job sent to /output/"
-            cp /tmp/process_log.txt /output/
         else
             write_to_output_log "Processed job sent to Physical Label Printer"
         fi
+        cp "$job_dir/process_log.txt" /output/
         exit 0
     else
-        write_to_output_log "Error processing PostScript"
+        write_to_output_log "Error processing labels"
         
         # Get the Job ID from Env Variable
         local job_id
@@ -105,9 +109,7 @@ main() {
             write_to_output_log "Cancelled job $job_id"
         fi
 
-        if [ "$test_mode" = "TRUE" ]; then
-            cp /tmp/process_log.txt /output/
-        fi
+        cp "$job_dir/process_log.txt" /output/
 
         echo -e "\a\a\a"
         
