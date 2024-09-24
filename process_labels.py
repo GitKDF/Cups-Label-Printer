@@ -1,5 +1,5 @@
 import fitz  # PyMuPDF
-from PIL import Image, ImageOps
+from PIL import Image
 import cv2
 import numpy as np
 import os
@@ -20,9 +20,6 @@ class CustomArgumentParser(argparse.ArgumentParser):
     def error(self, message):
         log_message(f"Argument error: {message}")
         super().error(message)
-
-# Initialize the log file at the start of the script
-initialize_log()
 
 def isPage4by6(rect, error_margin_percent):
     # Define the dimensions in points (1 inch = 72 points)
@@ -122,7 +119,6 @@ def crop_whitespace(image, dpi, ant_threshold):
 
 def check_dimensions(image, target_width, target_height, dpi, error_margin_percent):
     log_message("Checking dimensions.")
-    image = np.array(image)
     
     height, width = image.shape[:2]
     error_margin = error_margin_percent / 100.0
@@ -138,7 +134,6 @@ def check_dimensions(image, target_width, target_height, dpi, error_margin_perce
 
 def check_ratio(image, target_width, target_height, dpi, error_margin_percent):
     log_message("Checking ratio.")
-    image = np.array(image)
     
     height, width = image.shape[:2]
     error_margin = error_margin_percent / 100.0
@@ -153,7 +148,6 @@ def check_ratio(image, target_width, target_height, dpi, error_margin_percent):
 
 def validate_barcode_and_separator(image, dpi):
     log_message("Validating barcode and separator.")
-    image = np.array(image)
     
     height, width = image.shape[:2]
     
@@ -345,7 +339,7 @@ def process_pdf(pdf_path, dpi, error_margin_percent, set_margin, output_path, an
     except Exception as e:
         log_message(f"Error processing PDF: {str(e)}")
         raise
-        
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process a PDF document.")
     parser.add_argument("pdf_path", type=str, help="Path to the input PDF file.")
