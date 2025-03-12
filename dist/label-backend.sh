@@ -50,7 +50,7 @@ main() {
     find /tmp -maxdepth 1 -type d -name 'Job[0-9]*' -mtime +1 -exec rm -rf {} +
 
     # Create a new JobX folder
-    for i in {1..100}; do
+    for i in {1..1000}; do
         if [ ! -d "/tmp/Job$i" ]; then
             job_dir="/tmp/Job$i"
             mkdir "$job_dir"
@@ -80,9 +80,22 @@ main() {
     # Check if TestMode is set to TRUE
     if [ -f "$output_path" ]; then
         # Copy the output file to the /output folder
-        write_to_output_log "Copying $output_path to /output/"
-        cp "$output_path" /output/
         
+        # Get the current date and time in the desired format
+        timestamp=$(date +"%Y-%m-%d %H_%M_%S")
+        
+        # Define the new filename with the timestamp
+        new_filename="$timestamp.pdf"
+        
+        # Write to the output log with the new filename
+        write_to_output_log "Copying $output_path to /output/$new_filename"
+        
+        # Copy the file with the new name
+        cp "$output_path" "/output/$new_filename"
+
+        # Delete PDF files older than 90 days in the /output folder
+        find /output -maxdepth 1 -type f -iregex '.*/[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}_[0-9]{2}_[0-9]{2}\.pdf' -mtime +90 -exec rm -f {} +
+
         if [ "$test_mode" != "TRUE" ]; then
             # Send Job to real Label Printer
             lp -d Hidden_Label_Printer -o fit-to-page -o resolution=203dpi "$job_dir/label_print_job.pdf"
