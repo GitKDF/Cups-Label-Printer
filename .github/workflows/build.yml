@@ -54,10 +54,11 @@ jobs:
   build-docker:
     runs-on: ubuntu-latest
     needs: [build-elf]
-    if: always()
     strategy:
       matrix:
         platform: [linux/amd64, linux/arm/v7, linux/arm64/v8]
+        # Added ARCH for easier tag construction
+        arch: [amd64, armv7, arm64]
 
     steps:
       - name: Checkout repository
@@ -94,7 +95,8 @@ jobs:
         with:
           platforms: ${{ matrix.platform }}
           push: true
-          tags: ${{ env.IMAGE_NAME }}:${{ steps.determine_tag.outputs.TAG }}-${{ matrix.platform }}
+          # Corrected tag format:
+          tags: ${{ env.IMAGE_NAME }}:${{ steps.determine_tag.outputs.TAG }}-${{ matrix.arch }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
