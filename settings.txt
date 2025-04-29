@@ -1,4 +1,5 @@
 dpi=600
-error_margin_percent=20
 set_margin=0.1
-ant_threshold=0.2
+retention_period=90
+direct_label_printer=Label_Printer_Direct
+test_mode=FALSE
