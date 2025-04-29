@@ -26,7 +26,6 @@ jobs:
         run: |
           pip install pyinstaller
           pip install pymupdf
-          pip install pillow
           pip install opencv-python-headless
           pip install numpy
           pip install argparse
