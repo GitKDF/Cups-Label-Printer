@@ -10,7 +10,7 @@ COPY /dist/ppd/ /etc/cups/ppd/
 
 # Copy settings file
 RUN mkdir -p /etc/settings-bak
-COPY /settings.txt /etc/settings-bak
+COPY /process_labels_settings.txt /etc/settings-bak
 
 # Copy the split ELF file chunks
 COPY /dist/process_labels_split_part* /usr/lib/process_labels/
