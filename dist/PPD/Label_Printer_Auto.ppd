@@ -6,19 +6,15 @@
 *LanguageEncoding: ISOLatin1
 *PCFileName: "dummy.ppd"
 *Manufacturer: "Custom"
-*Product: "Label Printer"
-*ModelName: "Label Printer"
-*ShortNickName: "Label Printer"
-*NickName: "Label Printer"
+*Product: "Label Printer Auto"
+*ModelName: "Label Printer Auto"
+*ShortNickName: "Label Printer Auto"
+*NickName: "Label Printer Auto"
 
 *PageSize 4x6/4x6: "<</PageSize [288 432]>>setpagedevice"
-*PageSize Letter/8.5x11: "<</PageSize [612 792]>>setpagedevice"
 
 *PageRegion 4x6/4x6: "<</PageSize [288 432]>>setpagedevice"
-*PageRegion Letter/8.5x11: "<</PageSize [612 792]>>setpagedevice"
 
 *ImageableArea 4x6: "0 0 288 432"
-*ImageableArea Letter: "0 0 612 792"
 
 *PaperDimension 4x6: "288 432"
-*PaperDimension Letter: "612 792"
