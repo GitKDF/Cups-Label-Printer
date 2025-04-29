@@ -6,9 +6,9 @@ if [ ! -f /etc/cups/cupsd.conf ]; then
 fi
 
 # Check if settings.txt exists in mounted volume
-if [ ! -f /etc/cups/process_labels/settings.txt ]; then
-    # Copy settings.txt from the backup directory if it doesn't exist
-    cp -f /etc/settings-bak/settings.txt /etc/cups/process_labels/settings.txt
+if [ ! -f /etc/cups/process_labels_settings.txt ]; then
+    # Copy settings file from the backup directory if it doesn't exist
+    cp -f /etc/settings-bak/process_labels_settings.txt /etc/cups/process_labels_settings.txt
 fi
 
 if [ ! -d "/output" ]; then
