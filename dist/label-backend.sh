@@ -77,7 +77,7 @@ Crop_PDF() {
 
     write_to_output_log "Calling process_labels.elf \"$current_pdf_path\" \"$dpi\" \"$set_margin\" \"$current_output_path\""
     # Call the ELF executable with the updated parameters (error_margin_percent and ant_threshold removed)
-    /etc/cups/process_labels/process_labels.elf "$current_pdf_path" "$dpi" "$set_margin" "$current_output_path"
+    /usr/lib/process_labels/process_labels.elf "$current_pdf_path" "$dpi" "$set_margin" "$current_output_path"
     # Check the exit status of the ELF
     if [ $? -ne 0 ]; then
         write_to_output_log "Error: process_labels.elf failed."
@@ -183,8 +183,8 @@ main() {
     fi
     write_to_output_log "PostScript converted to PDF successfully."
 
-    # --- Get settings from settings.txt ---
-    local settings_file="/etc/cups/process_labels/settings.txt"
+    # --- Get settings from file ---
+    local settings_file="/etc/cups/process_labels_settings.txt"
     local dpi # Declare variables locally
     local set_margin
     local retention_period
