@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Global variable for the log buffer.
+# Messages will be stored here if the log file is not yet writable.
+log_buffer=""
+
 # job_dir will store the path to the temporary job directory
 job_dir=""
 # pdf_path will store the path to the intermediate PDF file
@@ -10,28 +14,55 @@ output_path=""
 # Function to write to the output log
 write_to_output_log() {
     local message=$1
-    # Check if the process log file exists before writing
-    if [ -f "$job_dir/process_log.txt" ]; then
-        echo "JobCrop: $message" >> "$job_dir/process_log.txt"
+    local formatted_message="JobCrop: $message"
+
+    # Always echo the message to standard error for CUPS logging
+    echo "$formatted_message" >&2
+
+    # Check if the job_dir is set and the process log file exists and is writable
+    if [ -n "$job_dir" ] && [ -f "$job_dir/process_log.txt" ] && [ -w "$job_dir/process_log.txt" ]; then
+        # If the log file is writable:
+        if [ -n "$log_buffer" ]; then
+            # If there's content in the buffer, append the current message to it
+            # Add newline BEFORE the new message when appending to buffer
+            log_buffer+="$'\n'$formatted_message"
+            # Write the entire buffer to the log file using -n to avoid extra newline
+            echo -n "$log_buffer" >> "$job_dir/process_log.txt"
+            # Clear the buffer after writing
+            log_buffer=""
+        else
+            # If the buffer is empty, write the current message directly to the log file
+            # No -n here, as we want a newline after this single message
+            echo "$formatted_message" >> "$job_dir/process_log.txt"
+        fi
+    else
+        # If the log file is not writable, append the message to the buffer
+        if [ -n "$log_buffer" ]; then
+             # Add newline BEFORE the new message when appending to buffer
+             log_buffer+="$'\n'$formatted_message"
+        else
+             # First message in buffer, no leading newline needed
+             log_buffer+="$formatted_message"
+        fi
     fi
-    # Also echo the message to standard error for CUPS logging
-    echo "$message" >&2
 }
 
 # Function to cancel the CUPS job
 cancel_cups_job() {
-    # Get the Job ID from Env Variable
+    local reason="$1" # Optional message for the log indicating why cancel was called
     local job_id="$CUPS_JOBID"
+
     if [ -n "$job_id" ]; then
-        # Cancel the CUPS job
-        write_to_output_log "Attempting to cancel CUPS job $job_id."
+        write_to_output_log "Attempting to cancel CUPS job $job_id. Reason: ${reason:-Unknown}"
+
+        # Attempt to cancel the job
         if cancel "$job_id"; then
              write_to_output_log "Cancelled job $job_id successfully."
         else
              write_to_output_log "Warning: Failed to cancel job $job_id."
         fi
     else
-        write_to_output_log "CUPS_JOBID environment variable not set. Cannot cancel job."
+        write_to_output_log "CUPS_JOBID environment variable not set. Cannot cancel job. Reason: ${reason:-Unknown}"
     fi
 }
 
@@ -46,7 +77,7 @@ Crop_PDF() {
 
     write_to_output_log "Calling process_labels.elf \"$current_pdf_path\" \"$dpi\" \"$set_margin\" \"$current_output_path\""
     # Call the ELF executable with the updated parameters (error_margin_percent and ant_threshold removed)
-    /usr/lib/process_labels/process_labels.elf "$current_pdf_path" "$dpi" "$set_margin" "$current_output_path"
+    /etc/cups/process_labels/process_labels.elf "$current_pdf_path" "$dpi" "$set_margin" "$current_output_path"
     # Check the exit status of the ELF
     if [ $? -ne 0 ]; then
         write_to_output_log "Error: process_labels.elf failed."
@@ -56,33 +87,23 @@ Crop_PDF() {
 }
 
 main() {
-    # Create a new output log file for this job
-    # Check if log file creation was successful immediately, before trying to log to it
-    # Note: job_dir is empty here, so this initial log creation will fail if /tmp is not writable,
-    # and the error will be logged to stderr by the shell itself before our function can run.
-    # This is acceptable as we can't log to a file that doesn't exist.
-    if ! touch "$job_dir/process_log.txt"; then
-        echo "JobCrop: Error: Failed to create process log file $job_dir/process_log.txt." >&2
-        # We cannot log this to the file, so we just exit
-        # No need to call cancel_cups_job here as job_dir isn't set and we can't log the cancel attempt.
-        exit 1
-    fi
-
     # Delete old JobX folders (older than 1 day)
-    write_to_output_log "JobCrop: Deleting old job directories..."
+    # Use write_to_output_log - messages will be buffered until log file is created
+    write_to_output_log "Deleting old job directories..."
     find /tmp -maxdepth 1 -type d -name 'Job[0-9]*' -mtime +1 -exec rm -rf {} +
 
     # Create a new JobX folder
-    echo "JobCrop: Creating new job directory..." >&2 # Log to stderr as job_dir might not be set yet
+    # Use write_to_output_log - messages will be buffered until log file is created
+    write_to_output_log "Creating new job directory..."
     for i in {1..1000}; do
         if [ ! -d "/tmp/Job$i" ]; then
             job_dir="/tmp/Job$i"
             mkdir "$job_dir"
             # Check if directory creation was successful
             if [ $? -ne 0 ]; then
-                write_to_output_log "JobCrop: Error: Failed to create job directory $job_dir."
+                write_to_output_log "Error: Failed to create job directory $job_dir."
                 # Call cancel_cups_job before exiting on error
-                cancel_cups_job
+                cancel_cups_job "Failed to create job directory"
                 exit 1
             fi
             break
@@ -91,16 +112,31 @@ main() {
 
     # Check if job_dir was successfully set after the loop
     if [ -z "$job_dir" ]; then
-        write_to_output_log "JobCrop: Error: Failed to create a unique job directory."
+        write_to_output_log "Error: Failed to create a unique job directory."
         # Call cancel_cups_job before exiting on error
-        cancel_cups_job
+        cancel_cups_job "Failed to find unique job directory"
         exit 1
     fi
-    write_to_output_log "Job directory created at $job_dir"
+
+    # Create the process log file inside the newly created job directory
+    # Check if log file creation was successful immediately, before trying to log to it
+    if ! touch "$job_dir/process_log.txt"; then
+        write_to_output_log "Error: Failed to create process log file $job_dir/process_log.txt."
+        # Call cancel_cups_job before exiting on error, log will go to stderr and buffer
+        cancel_cups_job "Failed to create process log file"
+        exit 1
+    fi
+    # Now that the log file exists, subsequent calls to write_to_output_log
+    # will write the buffer content and then new messages directly.
+    # The function itself handles checking the buffer state and flushing.
+    write_to_output_log "Job directory created at $job_dir" # This message and buffered ones will now be written
+    write_to_output_log "Log file created at $job_dir/process_log.txt"
+
 
     # Define paths for intermediate and output files within the job directory
     pdf_path="$job_dir/label_input.pdf"
     output_path="$job_dir/label_print_job.pdf"
+
 
     # Read input data from stdin (the PostScript data from CUPS)
     write_to_output_log "Reading input PostScript data..."
@@ -110,7 +146,7 @@ main() {
     if [ -z "$input_data" ]; then
          write_to_output_log "Error: No input PostScript data received."
          # Call cancel_cups_job before exiting on error
-         cancel_cups_job
+         cancel_cups_job "No input PostScript data"
          exit 1
     fi
     write_to_output_log "Input PostScript data read successfully."
@@ -123,7 +159,7 @@ main() {
     if [ $? -ne 0 ]; then
         write_to_output_log "Error: Failed to save input PostScript data."
         # Call cancel_cups_job before exiting on error
-        cancel_cups_job
+        cancel_cups_job "Failed to save input PostScript"
         exit 1
     fi
 
@@ -142,13 +178,13 @@ main() {
     if [ $? -ne 0 ]; then
         write_to_output_log "Error: PostScript to PDF conversion failed."
         # Call cancel_cups_job before exiting on error
-        cancel_cups_job
+        cancel_cups_job "PostScript to PDF conversion failed"
         exit 1
     fi
     write_to_output_log "PostScript converted to PDF successfully."
 
     # --- Get settings from settings.txt ---
-    local settings_file="/etc/cups/process_labels_settings.txt"
+    local settings_file="/etc/cups/process_labels/settings.txt"
     local dpi # Declare variables locally
     local set_margin
     local retention_period
@@ -214,7 +250,7 @@ main() {
         if [ $? -ne 0 ]; then
             write_to_output_log "Error: Failed to move PDF for direct printing."
             # Call cancel_cups_job before exiting on error
-            cancel_cups_job
+            cancel_cups_job "Failed to move PDF for direct printing"
             exit 1
         fi
         write_to_output_log "Direct printing move successful."
@@ -227,7 +263,7 @@ main() {
         if [ $? -ne 0 ]; then
             write_to_output_log "Error during PDF Cropping."
             # Call cancel_cups_job before exiting on error
-            cancel_cups_job
+            cancel_cups_job "PDF cropping failed"
             exit 1 # Exit main with error status
         fi
         write_to_output_log "PDF cropped successfully."
@@ -265,7 +301,7 @@ main() {
         # Delete PDF files older than Retention_Period days in the /output folder
         write_to_output_log "Deleting PDF files older than $retention_period days in /output..."
         # Use the retention_period variable in the find command
-        find /output -maxdepth 1 -type f -iregex '.*/[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}_[0-9]{2}_[0-9]{2}\.pdf' -mtime +"$retention_period" -exec rm -f {} +
+        find /output -maxdepth 1 -type f -iregex '.*/[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}_[0-9]{2}_[0_9]{2}\.pdf' -mtime +"$retention_period" -exec rm -f {} +
         # Check if the find/delete command had errors (though find's exit status can be tricky)
         if [ $? -ne 0 ]; then
              write_to_output_log "Warning: Errors encountered while deleting old files."
@@ -306,11 +342,11 @@ main() {
         write_to_output_log "Error processing labels: Output file not found."
 
         # Call cancel_cups_job before exiting on error
-        cancel_cups_job
+        cancel_cups_job "Output file not found after processing"
 
         # Copy the process log to /output even on failure for debugging
         write_to_output_log "Copying process log to /output/ on error."
-        if [ -f "$job_dir/process_log.txt" ]; then # Check if log file exists before copying
+        if [ -n "$job_dir" ] && [ -f "$job_dir/process_log.txt" ]; then # Check if log file exists before copying
             if ! cp "$job_dir/process_log.txt" /output/; then
                  write_to_output_log "Warning: Failed to copy process log to /output/ on error."
                  # Continue, but log the warning
