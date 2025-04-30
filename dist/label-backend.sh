@@ -25,21 +25,23 @@ write_to_output_log() {
         if [ -n "$log_buffer" ]; then
             # If there's content in the buffer, append the current message to it
             # Add newline BEFORE the new message when appending to buffer
-            log_buffer+="$'\n'$formatted_message"
-            # Write the entire buffer to the log file using -n to avoid extra newline
-            echo -n "$log_buffer" >> "$job_dir/process_log.txt"
+            # Use \n which printf %b will interpret
+            log_buffer+="\n$formatted_message"
+            # Write the entire buffer to the log file using printf %b to interpret \n
+            printf %b "$log_buffer" >> "$job_dir/process_log.txt"
             # Clear the buffer after writing
             log_buffer=""
         else
             # If the buffer is empty, write the current message directly to the log file
-            # No -n here, as we want a newline after this single message
+            # echo without -n adds a newline, which is what we want for a single line
             echo "$formatted_message" >> "$job_dir/process_log.txt"
         fi
     else
         # If the log file is not writable, append the message to the buffer
         if [ -n "$log_buffer" ]; then
              # Add newline BEFORE the new message when appending to buffer
-             log_buffer+="$'\n'$formatted_message"
+             # Use \n
+             log_buffer+="\n$formatted_message"
         else
              # First message in buffer, no leading newline needed
              log_buffer+="$formatted_message"
@@ -76,7 +78,7 @@ Crop_PDF() {
     local current_output_path="$4" # Path where the ELF should save the processed PDF
 
     write_to_output_log "Calling process_labels.elf \"$current_pdf_path\" \"$dpi\" \"$set_margin\" \"$current_output_path\""
-    # Call the ELF executable with the updated parameters (error_margin_percent and ant_threshold removed)
+    # Call the ELF executable
     /usr/lib/process_labels/process_labels.elf "$current_pdf_path" "$dpi" "$set_margin" "$current_output_path"
     # Check the exit status of the ELF
     if [ $? -ne 0 ]; then
@@ -205,10 +207,12 @@ main() {
         retention_period=$(grep -E '^Retention_Period=' "$settings_file" | awk -F '=' '{print $2}' | xargs)
         retention_period=${retention_period:-90} # Default to 90 if not found or empty
 
-        direct_label_printer=$(grep -E '^Direct_Label_Printer=' "$settings_file" | awk -F '=' '{print $2}' | xargs)
+        # Use case-insensitive grep (-i) for Direct_Label_Printer
+        direct_label_printer=$(grep -i -E '^Direct_Label_Printer=' "$settings_file" | awk -F '=' '{print $2}' | xargs)
         # direct_label_printer can be empty if not set
 
-        test_mode=$(grep -E '^TestMode=' "$settings_file" | awk -F '=' '{print $2}' | xargs)
+        # Use case-insensitive grep (-i) for TestMode
+        test_mode=$(grep -i -E '^TestMode=' "$settings_file" | awk -F '=' '{print $2}' | xargs)
         test_mode=${test_mode:-"FALSE"} # Default to FALSE if not found or empty
 
         write_to_output_log "Settings loaded: DPI=$dpi, Set_Margin=$set_margin, Retention_Period=$retention_period, Direct_Label_Printer=$direct_label_printer, TestMode=$test_mode"
