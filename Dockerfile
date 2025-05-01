@@ -1,34 +1,58 @@
+# --- Build Stage ---
+# Use a Python base image suitable for building
+FROM python:3.9-slim as builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Add any necessary system dependencies for pymupdf, opencv-python-headless etc.
+    # For pymupdf/opencv, you might need dependencies like libglib2.0-0, libsm6, libxrender1, libfontconfig1, libice6
+    libglib2.0-0 libsm6 libxrender1 libfontconfig1 libice6 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set the working directory inside the builder stage
+WORKDIR /app
+
+# Copy necessary source files for the build
+COPY process_labels.py .
+# Ensure this requirements.txt contains pyinstaller AND your script's dependencies
+COPY requirements.txt .
+
+# Install Python dependencies including PyInstaller
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Build the executable using PyInstaller
+# This command will run for each architecture targeted by buildx
+RUN pyinstaller --onefile process_labels.py
+
+# --- Runtime Stage ---
+# Use your desired base image
 FROM drpsychick/airprint-bridge:latest
 
-# Create the necessary directory
-RUN mkdir -p /usr/lib/process_labels
+# Create necessary directories
+RUN mkdir -p /usr/lib/process_labels /etc/settings-bak /etc/cups-bak /etc/cups/ppd /usr/lib/cups/backend
 
-# Copy configuration and PPD files
-COPY /dist/printers.conf /etc/cups/
-# Copy the entire /dist/ppd/ directory to /etc/cups/ppd/
-COPY /dist/ppd/ /etc/cups/ppd/
+# Copy configuration and PPD files from the source context
+COPY printers.conf /etc/cups/
+COPY ppd/ /etc/cups/ppd/
 
-# Copy settings file
-RUN mkdir -p /etc/settings-bak
-COPY /process_labels_settings.txt /etc/settings-bak
+# Copy settings file from the source context
+COPY process_labels_settings.txt /etc/settings-bak/
 
-# Copy the split ELF file chunks
-COPY /dist/process_labels_split_part* /usr/lib/process_labels/
+# Copy the built executable from the builder stage
+# The 'process_labels.elf' name is kept for consistency with your original script/entrypoint
+COPY --from=builder /app/dist/process_labels /usr/lib/process_labels/process_labels.elf
 
-# Recombine the split ELF file chunks then remove chunk files
-RUN cat /usr/lib/process_labels/process_labels_split_part* > /usr/lib/process_labels/process_labels.elf && \
-    rm /usr/lib/process_labels/process_labels_split_part*
+# Copy the backend script from the source context
+COPY label-backend.sh /usr/lib/cups/backend/label-backend
 
-# Copy the backend script
-COPY /dist/label-backend.sh /usr/lib/cups/backend/label-backend
-
-# Copy the contents of /etc/cups/ to /etc/cups-bak/
-RUN mkdir -p /etc/cups-bak && cp -r /etc/cups/* /etc/cups-bak/
+# Copy the contents of /etc/cups/ to /etc/cups-bak/ (after copying initial config)
+RUN cp -r /etc/cups/* /etc/cups-bak/
 
 # Set ownership and permissions
 RUN chown root:root /usr/lib/cups/backend/label-backend && chmod 0500 /usr/lib/cups/backend/label-backend
 RUN chown root:root /usr/lib/process_labels/process_labels.elf && chmod 755 /usr/lib/process_labels/process_labels.elf
 
+# Entrypoint setup
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
