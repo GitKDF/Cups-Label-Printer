@@ -37,7 +37,7 @@ RUN mkdir -p /usr/lib/process_labels /etc/settings-bak /etc/cups-bak /etc/cups/p
 COPY /dist/printers.conf /etc/cups/
 COPY /dist/ppd/ /etc/cups/ppd/
 
-# Copy settings file from the source context /dist/ folder
+# Copy settings file from the source context root folder
 COPY /process_labels_settings.txt /etc/settings-bak/
 
 # Copy the built executable from the builder stage
