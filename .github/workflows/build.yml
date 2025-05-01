@@ -47,7 +47,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           # Specify all platforms to build
-          platforms: linux/amd64,linux/arm/v7,linux/arm64/v8
+          platforms: linux/amd64,linux/arm64/v8
           push: true # Push the images and create the manifest list
           tags: ${{ env.IMAGE_NAME }}:${{ steps.determine_tag.outputs.TAG }} # The main tag for the manifest list
           cache-from: type=gha
