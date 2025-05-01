@@ -1,5 +1,5 @@
 pyinstaller
-fitz
-cv2
-numpy
-argparse
+pymupdf         # For import fitz
+opencv-python-headless # For import cv2 (use opencv-python if you needed GUI features)
+numpy           # For import numpy
+argparse        # For import argparse
