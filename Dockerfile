@@ -43,7 +43,7 @@ COPY process_labels_settings.txt /etc/settings-bak/
 COPY --from=builder /app/dist/process_labels /usr/lib/process_labels/process_labels.elf
 
 # Copy the backend script from the source context
-COPY label-backend.sh /usr/lib/cups/backend/label-backend
+COPY /dist/label-backend.sh /usr/lib/cups/backend/label-backend
 
 # Copy the contents of /etc/cups/ to /etc/cups-bak/ (after copying initial config)
 RUN cp -r /etc/cups/* /etc/cups-bak/
