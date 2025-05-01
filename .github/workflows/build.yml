@@ -3,19 +3,15 @@ name: Build and Push Docker Image
 on: [push]
 
 env:
-  # GH_PAT and related git commit steps are no longer needed as ELF is not committed
   DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
   DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
   IMAGE_NAME: gitkdf/cups-label-printer
 
 jobs:
-  # Removed the build-elf job
 
   build-docker:
     runs-on: ubuntu-latest # The runner OS is sufficient with buildx
-    # Removed needs: [build-elf]
-    # No strategy.matrix needed here for the build step itself if building all platforms at once
-
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -58,5 +54,3 @@ jobs:
           cache-to: type=gha,mode=max
           context: . # The build context (usually the root of your repo)
           file: Dockerfile # Path to your Dockerfile
-
-      # Removed the separate manifest list step, build-push-action handles it
