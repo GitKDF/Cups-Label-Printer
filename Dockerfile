@@ -8,6 +8,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 libsm6 libxrender1 libfontconfig1 libice6 \
     # Add binutils as required by PyInstaller
     binutils \
+    # Add build-essential for C/C++ compilers needed by some pip packages
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory inside the builder stage
@@ -40,12 +42,12 @@ COPY /dist/ppd/ /etc/cups/ppd/
 # Copy settings file from the source context root folder
 COPY /process_labels_settings.txt /etc/settings-bak/
 
+# Copy the backend script from the source context /dist/ folder
+COPY /dist/label-backend.sh /usr/lib/cups/backend/label-backend
+
 # Copy the built executable from the builder stage
 # The 'process_labels.elf' name is kept for consistency with your original script/entrypoint
 COPY --from=builder /app/dist/process_labels /usr/lib/process_labels/process_labels.elf
-
-# Copy the backend script from the source context /dist/ folder
-COPY /dist/label-backend.sh /usr/lib/cups/backend/label-backend
 
 # Copy the contents of /etc/cups/ to /etc/cups-bak/ (after copying initial config)
 RUN cp -r /etc/cups/* /etc/cups-bak/
