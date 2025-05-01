@@ -32,11 +32,11 @@ FROM drpsychick/airprint-bridge:latest
 RUN mkdir -p /usr/lib/process_labels /etc/settings-bak /etc/cups-bak /etc/cups/ppd /usr/lib/cups/backend
 
 # Copy configuration and PPD files from the source context
-COPY printers.conf /etc/cups/
-COPY ppd/ /etc/cups/ppd/
+COPY /dist/printers.conf /etc/cups/
+COPY /dist/ppd/ /etc/cups/ppd/
 
 # Copy settings file from the source context
-COPY process_labels_settings.txt /etc/settings-bak/
+COPY /process_labels_settings.txt /etc/settings-bak/
 
 # Copy the built executable from the builder stage
 # The 'process_labels.elf' name is kept for consistency with your original script/entrypoint
