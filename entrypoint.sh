@@ -15,6 +15,6 @@ if [ ! -d "/output" ]; then
     mkdir -p /output
 fi
 # Set permissions to 766
-chmod 766 /output
+# chmod 766 /output
 
 exec /root/start-cups.sh "$@"
