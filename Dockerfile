@@ -38,6 +38,7 @@ RUN mkdir -p /usr/lib/process_labels /etc/settings-bak /etc/cups-bak /etc/cups/p
 # Copy configuration and PPD files from the source context /dist/ folder
 COPY /dist/printers.conf /etc/cups/
 COPY /dist/ppd/ /etc/cups/ppd/
+COPY /dist/custompslabelfilter /etc/cups/
 
 # Copy settings file from the source context root folder
 COPY /process_labels_settings.txt /etc/settings-bak/
@@ -55,9 +56,9 @@ RUN cp -r /etc/cups/* /etc/cups-bak/
 # Set ownership and permissions
 RUN chown root:root /usr/lib/cups/backend/label-backend && chmod 0500 /usr/lib/cups/backend/label-backend
 RUN chown root:root /usr/lib/process_labels/process_labels.elf && chmod 755 /usr/lib/process_labels/process_labels.elf
+RUN chown root:root /etc/cups/custompslabelfilter && chmod 755 /etc/cups/custompslabelfilter
 
 # Entrypoint setup
-# Assuming entrypoint.sh is at the root of the repo
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
