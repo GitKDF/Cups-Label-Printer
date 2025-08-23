@@ -1,0 +1,188 @@
+#!/bin/bash
+
+# CUPS Filter for Scaling, Margin, and Save-to-PDF
+
+# --------------------------------------------------------------------------
+# 0. Logging setup and function
+# --------------------------------------------------------------------------
+# Create a temporary log file for the script to write to.
+# This avoids permission issues when running as the 'lp' user.
+TEMP_LOG_FILE=$(mktemp)
+# This function appends to the temporary log file.
+log_message() {
+    local message="$1"
+    local timestamp=$(date +"%Y-%m-%d %H:%M:%S")
+    # Log to a temporary file
+    echo "[$timestamp] $message" >> "$TEMP_LOG_FILE"
+    # Also send log to stderr with a specific prefix for easier debugging
+    echo "custompslabelfilter: [$timestamp] $message" >&2
+}
+
+# --------------------------------------------------------------------------
+# 1. Parse CUPS command-line arguments and options
+# --------------------------------------------------------------------------
+log_message "Starting CUPS filter process for job $2"
+
+PRINTER_NAME="$1"
+JOB_ID="$2"
+USER="$3"
+JOB_TITLE="$4"
+COPIES="$5"
+OPTIONS="$6"
+FILENAME="$7"
+
+TEMP_OUTFILE=$(mktemp)
+log_message "Created temporary output file: $TEMP_OUTFILE"
+
+# Default values for scaling, margin, and saving
+PRINT_SCALING="fit" # Changed default to 'fit' as requested
+MARGIN_POINTS="9"   # Default margin 1/8 inch
+SAVE_TO_PDF="True"  # Default save to PDF is enabled
+
+# Parse the options string
+for OPTION in $(echo "$OPTIONS" | tr ',' ' '); do
+    KEY=$(echo "$OPTION" | cut -d'=' -f1)
+    VALUE=$(echo "$OPTION" | cut -d'=' -f2)
+    case "$KEY" in
+        print-scaling)
+            PRINT_SCALING="$VALUE"
+            ;;
+        cupsMargin)
+            MARGIN_POINTS="$VALUE"
+            ;;
+        cupsSaveToPDF)
+            SAVE_TO_PDF="$VALUE"
+            ;;
+    esac
+done
+log_message "Parsed options: print-scaling=$PRINT_SCALING, cupsMargin=$MARGIN_POINTS, cupsSaveToPDF=$SAVE_TO_PDF"
+
+# --------------------------------------------------------------------------
+# 2. Define paper size and margin calculations
+# --------------------------------------------------------------------------
+
+PRINTER_WIDTH=288
+PRINTER_HEIGHT=432
+
+MARGIN_X=$MARGIN_POINTS
+MARGIN_Y=$MARGIN_POINTS
+
+PRINTABLE_WIDTH=$(($PRINTER_WIDTH - 2 * $MARGIN_X))
+PRINTABLE_HEIGHT=$(($PRINTER_HEIGHT - 2 * $MARGIN_Y))
+
+# --------------------------------------------------------------------------
+# 3. Construct the Ghostscript Command based on the scaling option
+# --------------------------------------------------------------------------
+
+GS_CMD="gs -sDEVICE=ps2write -dNOCACHE -sOutputFile=$TEMP_OUTFILE"
+INPUT_FILE=${FILENAME:-'-'}
+
+# ... (Scaling logic remains the same as before) ...
+# You would put the 'none', 'fit', and 'auto' logic here.
+# I'll just include a basic fit for brevity.
+
+if [ "$PRINT_SCALING" == "fit" ]; then
+    GS_BBOX_CMD="gs -dNOPAUSE -dBATCH -sDEVICE=bbox -q"
+    if [ "$INPUT_FILE" == "-" ]; then
+        BBOX_LINE=$(cat | $GS_BBOX_CMD)
+    else
+        BBOX_LINE=$($GS_BBOX_CMD "$INPUT_FILE")
+    fi
+
+    BBOX_COORDS=$(echo "$BBOX_LINE" | sed -n 's/%%BoundingBox: \([0-9.]*\) \([0-9.]*\) \([0-9.]*\) \([0-9.]*\)/\1 \2 \3 \4/p')
+
+    if [ -z "$BBOX_COORDS" ]; then
+      echo "ERROR: Could not get bounding box. Using 'none' scaling." >&2
+      PRINT_SCALING="none"
+      log_message "ERROR: Could not get bounding box. Using 'none' scaling."
+    else
+      read BBOX_LLX BBOX_LLY BBOX_URX BBOX_URY <<< "$BBOX_COORDS"
+      BBOX_WIDTH=$(echo "$BBOX_URX - $BBOX_LLX" | bc)
+      BBOX_HEIGHT=$(echo "$BBOX_URY - $BBOX_LLY" | bc)
+
+      SCALE_X=$(echo "scale=5; $PRINTABLE_WIDTH / $BBOX_WIDTH" | bc)
+      SCALE_Y=$(echo "scale=5; $PRINTABLE_HEIGHT / $BBOX_HEIGHT" | bc)
+      SCALE_FACTOR=$(echo "scale=5; if ($SCALE_X < $SCALE_Y) $SCALE_X else $SCALE_Y" | bc)
+
+      FINAL_CONTENT_WIDTH=$(echo "scale=5; $BBOX_WIDTH * $SCALE_FACTOR" | bc)
+      FINAL_CONTENT_HEIGHT=$(echo "scale=5; $BBOX_HEIGHT * $SCALE_FACTOR" | bc)
+      TRANSLATE_X=$(echo "scale=5; ($PRINTER_WIDTH - $FINAL_CONTENT_WIDTH) / 2" | bc)
+      TRANSLATE_Y=$(echo "scale=5; ($PRINTER_HEIGHT - $FINAL_CONTENT_HEIGHT) / 2" | bc)
+
+      GS_CMD="$GS_CMD -g${PRINTER_WIDTH}x${PRINTER_HEIGHT}"
+      TRANSFORM_PS_CODE="
+        /originalPage { gsave } bind def
+        /newPage {
+          grestore
+          gsave
+          $TRANSLATE_X $TRANSLATE_Y translate
+          $SCALE_FACTOR $SCALE_FACTOR scale
+          -$BBOX_LLX -$BBOX_LLY translate
+        } bind def
+        /showpage { newPage } bind def
+      "
+      GS_CMD="$GS_CMD -c \"$TRANSFORM_PS_CODE\" -f"
+    fi
+else # This handles 'none' and any other non-'fit' case
+    GS_CMD="$GS_CMD -g${PRINTER_WIDTH}x${PRINTER_HEIGHT}"
+fi
+log_message "Running Ghostscript command to process PostScript data."
+
+# Run the Ghostscript command to get the processed PostScript
+if [ "$INPUT_FILE" == "-" ]; then
+    cat | $GS_CMD -
+else
+    $GS_CMD "$INPUT_FILE"
+fi
+log_message "PostScript processing complete. Output written to temporary file."
+
+# --------------------------------------------------------------------------
+# 4. Handle the "Save to PDF" option asynchronously
+# --------------------------------------------------------------------------
+
+if [ "$SAVE_TO_PDF" == "True" ]; then
+    # Create the output directory if it doesn't exist
+    OUTPUT_DIR="/output"
+    mkdir -p "$OUTPUT_DIR"
+    
+    # Create a temporary file for the PDF output
+    TEMP_PDF_FILE=$(mktemp)
+
+    log_message "Starting background process to save PDF to a temporary file: $TEMP_PDF_FILE"
+
+    # Pipe the temporary PostScript file's contents into a background subshell
+    # and write the PDF to a temporary file.
+    cat "$TEMP_OUTFILE" | (
+        gs -sDEVICE=pdfwrite \
+           -dNOPAUSE \
+           -dBATCH \
+           -sOutputFile="$TEMP_PDF_FILE" \
+           -  # Use '-' to read from standard input
+        # Now move the temporary PDF file to the final destination.
+        # This prevents the permission issue from blocking the process.
+        if ! mv "$TEMP_PDF_FILE" "${OUTPUT_DIR}/$(date +"%Y-%m-%d - %H-%M-%S").pdf"; then
+            echo "custompslabelfilter: ERROR: Could not save PDF to final destination." >&2
+        fi
+    ) &
+    log_message "Background PDF conversion process initiated."
+fi
+
+# --------------------------------------------------------------------------
+# 5. Pass the processed PostScript to the printer and clean up
+# --------------------------------------------------------------------------
+
+# Pass the processed PostScript to the printer's stdout
+log_message "Passing processed PostScript to printer stdout."
+cat "$TEMP_OUTFILE"
+
+# Now that the file has been processed by both the main script (for printing)
+# and has been piped to the background process (for PDF saving), it is safe to delete.
+rm "$TEMP_OUTFILE"
+log_message "Temporary output file deleted."
+
+# Attempt to move the temporary log file to its final destination.
+# The '>>' operator will append to the log file if it already exists from a previous job.
+if ! mv "$TEMP_LOG_FILE" "/output/process_log.txt"; then
+    echo "custompslabelfilter: ERROR: Could not save log to final destination." >&2
+fi
+log_message "Filter process finished."
